@@ -1,0 +1,19 @@
+{
+  "name": "note-editor",
+  "version": "1.0.0",
+  "description": "rm数据备注编辑器",
+  "main": "index.ts",
+  "scripts": {
+    "test": "node index.ts"
+  },
+  "keywords": [
+    "note",
+    "editor"
+  ],
+  "author": "Zaun",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^39.2.0",
+    "electron-builder": "^26.0.12"
+  }
+}
