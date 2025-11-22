@@ -1,19 +1,50 @@
 {
-  "name": "note-editor",
+  "name": "RPG-DATA-Editor",
   "version": "1.0.0",
-  "description": "rm数据备注编辑器",
-  "main": "index.ts",
+  "description": "RM数据拓展编辑器 - 功能强大的JSON编辑工具，支持代码生成和自动链接管理",
+  "main": "outputjs/main.js",
+  "homepage": "./",
   "scripts": {
-    "test": "node index.ts"
+    "compile": "tsc",
+    "compile:watch": "tsc --watch",
+    "start": "cross-env NODE_ENV=development electron outputjs/main.js",
+    "dev": "cross-env NODE_ENV=development electron-builder --publish=never",
+    "build": "cross-env NODE_ENV=production electron-builder",
+    "deploy": "cross-env MODE=production electron-builder build --config .electron-builder.config.js",
+    "clean": "node -e \"require('fs').rmSync('./outputjs', { recursive: true, force: true })\""
   },
   "keywords": [
     "note",
-    "editor"
+    "editor",
+    "rpg-maker",
+    "json",
+    "code-generator"
   ],
   "author": "Zaun",
   "license": "MIT",
+  "build": {
+    "appId": "com.ZaunPlugin.RPGDataEditor",
+    "files": [
+      "dist/**/*",
+      "html/**/*",
+      "css/**/*",
+      "js/**/*",
+      "data/**/*",
+      "icon/**/*"
+    ],
+    "directories": {
+      "buildResources": "icon"
+    }
+  },
   "devDependencies": {
-    "electron": "^39.2.0",
-    "electron-builder": "^26.0.12"
+    "@types/node": "^24.10.1",
+    "asarmor": "^3.0.2",
+    "cross-env": "^7.0.3",
+    "electron": "^39.2.1",
+    "electron-builder": "^26.0.12",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.54.0"
   }
 }

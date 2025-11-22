@@ -2,7 +2,7 @@ module.exports = async function () {
     return {
         appId: 'com.ZaunPlugin.game',
         asar: true,
-        afterPack: './dist/afterPack.js',
+        afterPack: './afterPack/afterPack.js',
         directories: {
             output: 'dist-electron'
         },
@@ -13,7 +13,7 @@ module.exports = async function () {
                     arch: ['x64']
                 }
             ],
-            icon: 'html/icon/icon.png'
+            icon: 'icon/icon.png'
         },
         nsis: {
             oneClick: false,
@@ -32,7 +32,7 @@ module.exports = async function () {
                 }
             ],
             category: 'Games',
-            icon: 'html/icon/icon.png'
+            icon: 'icon/icon.png'
         },
         linux: {
             target: [
@@ -42,7 +42,7 @@ module.exports = async function () {
                 }
             ],
             category: 'Game',
-            icon: 'html/icon/icon.png'
+            icon: 'icon/icon.png'
         }
     };
 };
