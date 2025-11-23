@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell, Menu, clipboard } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -245,6 +245,35 @@ function createMenu() {
                             message: 'RM数据拓展编辑器 v1.0.0',
                             detail: '功能强大的JSON编辑工具，支持代码生成和自动链接管理'
                         });
+                    }
+                },
+                {
+                    label: "交流",
+                    click: async () => {
+                        const result = await dialog.showMessageBox(mainWindow!, {
+                            type: 'info',
+                            title: '交流',
+                            message: '请选择交流方式',
+                            detail: '由于QQ版本差异，无法自动跳转\n请手动选择交流方式',
+                            buttons: ['添加qq群', '添加qq好友', "取消添加"],
+                            defaultId: 0,
+                            cancelId: 2
+                        });
+                        const response = result.response;
+                        if (response === 0) {
+                            clipboard.writeText('910724852');
+                        } else if (response === 1) {
+                            clipboard.writeText('2311993475');
+                        }
+                        if (response !== 2) {
+                            //告知玩家已经复制到剪贴板，请手动添加
+                            dialog.showMessageBox(mainWindow!, {
+                                type: 'info',
+                                title: '交流',
+                                message: '已经复制到剪贴板，请手动添加',
+                                detail: '已经复制到剪贴板，请手动添加'
+                            });
+                        }
                     }
                 }
             ]

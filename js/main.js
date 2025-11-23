@@ -1080,8 +1080,15 @@
         if (!DOM.projectileActorOffsetX || !DOM.projectileActorOffsetY) return;
         const actorId = Number(DOM.projectileActorSelect?.value) || 0;
         const weaponId = Number(DOM.projectileWeaponOffsetSelect?.value) || 0;
+        const weapon = getProjectileDataArray('weapon')[weaponId];
+        if (!weapon) {
+            DOM.projectileActorOffsetX.value = 0;
+            DOM.projectileActorOffsetY.value = 0;
+            return;
+        }
+        const wtypeId = weapon.wtypeId;
         const actor = findProjectileEntryById(getProjectileDataArray('actor'), actorId);
-        const offset = actor?.projectileOffset?.[weaponId] ?? { x: 0, y: 0 };
+        const offset = actor?.projectileOffset?.[wtypeId] ?? emptyPoint;
         DOM.projectileActorOffsetX.value = offset.x ?? 0;
         DOM.projectileActorOffsetY.value = offset.y ?? 0;
     }
@@ -1123,12 +1130,27 @@
             showError('未找到角色');
             return;
         }
+        const weapon = getProjectileDataArray('weapon')[weaponId];
+        if (!weapon) {
+            showError('未找到武器');
+            return;
+        }
+        const wtypeId = weapon.wtypeId;
         const offsetX = Number(DOM.projectileActorOffsetX?.value) || 0;
         const offsetY = Number(DOM.projectileActorOffsetY?.value) || 0;
         if (!actor.projectileOffset || typeof actor.projectileOffset !== 'object') {
             actor.projectileOffset = {};
         }
-        actor.projectileOffset[weaponId] = { x: offsetX, y: offsetY };
+        let projectileOffset = actor.projectileOffset;
+        if (!projectileOffset) {
+            projectileOffset = actor.projectileOffset = {};
+        }
+        let offset = projectileOffset[wtypeId];
+        if (!offset) {
+            offset = projectileOffset[wtypeId] = { x: 0, y: 0 };
+        }
+        offset.x = offsetX;
+        offset.y = offsetY;
         try {
             await saveProjectileJsonResource('actor', actors);
         } catch (error) {
@@ -1155,10 +1177,16 @@
         }
         const offsetX = Number(DOM.projectileEnemyOffsetX?.value) || 0;
         const offsetY = Number(DOM.projectileEnemyOffsetY?.value) || 0;
-        if (!enemy.projectileOffset || typeof enemy.projectileOffset !== 'object') {
-            enemy.projectileOffset = {};
+        let projectileOffset = enemy.projectileOffset;
+        if (!projectileOffset) {
+            projectileOffset = enemy.projectileOffset = {};
         }
-        enemy.projectileOffset[skillId] = { x: offsetX, y: offsetY };
+        let offset = projectileOffset[skillId];
+        if (!offset) {
+            offset = projectileOffset[skillId] = { x: 0, y: 0 };
+        }
+        offset.x = offsetX;
+        offset.y = offsetY;
         try {
             await saveProjectileJsonResource('enemy', enemies);
         } catch (error) {
