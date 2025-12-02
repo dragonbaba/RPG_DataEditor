@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,15 +14,18 @@
             padding: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
         }
+
         .container {
             width: 100%;
             height: 100%;
         }
+
         /* Monaco Editor 容器样式 */
         #codeEditor {
             width: 100%;
             height: 100%;
         }
+
         .code-editor-container {
             flex: 1;
             display: flex;
@@ -29,6 +33,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <!-- 主容器 -->
@@ -114,7 +119,7 @@
                 <div class="panel-header">
                     <h2>备注编辑</h2>
                     <div class="note-panel-actions">
-                        <button id="saveNoteBtn" class="save-btn">保存备注</button>
+                        <button id="saveDescriptionBtn" class="save-btn note-description-btn">保存描述</button>
                     </div>
                 </div>
                 <div id="noteModeSubtitle" class="note-mode-subtitle">请选择左侧项目以编辑备注</div>
@@ -122,7 +127,7 @@
                     <label for="noteDescription" class="note-description-label">附加描述</label>
                     <textarea id="noteDescription" class="note-description" placeholder="输入描述（保存后写入 description 数组）"
                         spellcheck="false"></textarea>
-                    <button id="saveDescriptionBtn" class="save-btn note-description-btn">保存描述</button>
+                    <button id="saveNoteBtn" class="save-btn">保存备注</button>
                 </div>
                 <div class="note-editor-wrapper">
                     <textarea id="noteEditor" class="note-editor" placeholder="请输入备注内容，支持换行..."
@@ -138,45 +143,60 @@
                                     <div class="projectile-data-row">
                                         <span class="projectile-data-title">动画数据</span>
                                         <div class="projectile-data-controls">
-                                            <select id="projectileAnimationFileSelect" class="projectile-file-select"></select>
-                                            <button id="projectileAnimationLoadBtn" class="projectile-load-btn" data-type="animation">加载</button>
-                                            <button id="projectileAnimationPickBtn" class="projectile-pick-btn" data-type="animation">选择文件</button>
+                                            <select id="projectileAnimationFileSelect"
+                                                class="projectile-file-select"></select>
+                                            <button id="projectileAnimationLoadBtn" class="projectile-load-btn"
+                                                data-type="animation">加载</button>
+                                            <button id="projectileAnimationPickBtn" class="projectile-pick-btn"
+                                                data-type="animation">选择文件</button>
                                         </div>
                                         <span id="projectileAnimationStatus" class="projectile-data-status">尚未加载</span>
                                     </div>
                                     <div class="projectile-data-row">
                                         <span class="projectile-data-title">敌人数据</span>
                                         <div class="projectile-data-controls">
-                                            <select id="projectileEnemyFileSelect" class="projectile-file-select"></select>
-                                            <button id="projectileEnemyLoadBtn" class="projectile-load-btn" data-type="enemy">加载</button>
-                                            <button id="projectileEnemyPickBtn" class="projectile-pick-btn" data-type="enemy">选择文件</button>
+                                            <select id="projectileEnemyFileSelect"
+                                                class="projectile-file-select"></select>
+                                            <button id="projectileEnemyLoadBtn" class="projectile-load-btn"
+                                                data-type="enemy">加载</button>
+                                            <button id="projectileEnemyPickBtn" class="projectile-pick-btn"
+                                                data-type="enemy">选择文件</button>
                                         </div>
                                         <span id="projectileEnemyStatus" class="projectile-data-status">尚未加载</span>
                                     </div>
                                     <div class="projectile-data-row">
                                         <span class="projectile-data-title">技能数据</span>
                                         <div class="projectile-data-controls">
-                                            <select id="projectileSkillFileSelect" class="projectile-file-select"></select>
-                                            <button id="projectileSkillLoadBtn" class="projectile-load-btn" data-type="skill">加载</button>
-                                            <button id="projectileSkillPickBtn" class="projectile-pick-btn" data-type="skill">选择文件</button>
+                                            <select id="projectileSkillFileSelect"
+                                                class="projectile-file-select"></select>
+                                            <button id="projectileSkillLoadBtn" class="projectile-load-btn"
+                                                data-type="skill">加载</button>
+                                            <button id="projectileSkillPickBtn" class="projectile-pick-btn"
+                                                data-type="skill">选择文件</button>
                                         </div>
                                         <span id="projectileSkillStatus" class="projectile-data-status">尚未加载</span>
                                     </div>
                                     <div class="projectile-data-row">
                                         <span class="projectile-data-title">玩家数据</span>
                                         <div class="projectile-data-controls">
-                                            <select id="projectileActorFileSelect" class="projectile-file-select"></select>
-                                            <button id="projectileActorLoadBtn" class="projectile-load-btn" data-type="actor">加载</button>
-                                            <button id="projectileActorPickBtn" class="projectile-pick-btn" data-type="actor">选择文件</button>
+                                            <select id="projectileActorFileSelect"
+                                                class="projectile-file-select"></select>
+                                            <button id="projectileActorLoadBtn" class="projectile-load-btn"
+                                                data-type="actor">加载</button>
+                                            <button id="projectileActorPickBtn" class="projectile-pick-btn"
+                                                data-type="actor">选择文件</button>
                                         </div>
                                         <span id="projectileActorStatus" class="projectile-data-status">尚未加载</span>
                                     </div>
                                     <div class="projectile-data-row">
                                         <span class="projectile-data-title">武器数据</span>
                                         <div class="projectile-data-controls">
-                                            <select id="projectileWeaponFileSelect" class="projectile-file-select"></select>
-                                            <button id="projectileWeaponLoadBtn" class="projectile-load-btn" data-type="weapon">加载</button>
-                                            <button id="projectileWeaponPickBtn" class="projectile-pick-btn" data-type="weapon">选择文件</button>
+                                            <select id="projectileWeaponFileSelect"
+                                                class="projectile-file-select"></select>
+                                            <button id="projectileWeaponLoadBtn" class="projectile-load-btn"
+                                                data-type="weapon">加载</button>
+                                            <button id="projectileWeaponPickBtn" class="projectile-pick-btn"
+                                                data-type="weapon">选择文件</button>
                                         </div>
                                         <span id="projectileWeaponStatus" class="projectile-data-status">尚未加载</span>
                                     </div>
@@ -184,11 +204,8 @@
                             </div>
                             <div class="projectile-template-section">
                                 <div class="projectile-template-row">
-                                    <label class="projectile-template-label">
-                                        模板
-                                        <select id="projectileTemplateSelect" class="projectile-template-select"></select>
-                                    </label>
-                                    <button id="projectileCreateTemplateBtn" class="action-btn secondary projectile-create-btn">新建弹道数据</button>
+                                    <button id="projectileCreateTemplateBtn"
+                                        class="action-btn secondary projectile-create-btn">新建弹道数据</button>
                                 </div>
                                 <div class="projectile-template-grid">
                                     <label>
@@ -272,7 +289,8 @@
                                 <span>弹道轨迹节点</span>
                                 <div class="projectile-segment-actions">
                                     <button id="projectileAddSegmentBtn" class="action-btn tiny">新增节点</button>
-                                    <button id="projectileClearSegmentsBtn" class="action-btn tiny secondary">清空节点</button>
+                                    <button id="projectileClearSegmentsBtn"
+                                        class="action-btn tiny secondary">清空节点</button>
                                 </div>
                             </div>
                             <div id="projectileSegmentList" class="projectile-segment-list"></div>
@@ -369,4 +387,5 @@
     <script src="../js/Zaun_GameCore.js"></script>
     <script src="../js/main.js"></script>
 </body>
+
 </html>

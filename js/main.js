@@ -16,14 +16,15 @@
     class AppState {
         constructor() {
             // 文件和数据相关
+            this.isProjectileFileLoaded = true;
             this.currentData = null;
-            this.currentFile = null;
-            this.currentFilePath = null;
+            this.currentFile = "";
+            this.currentFilePath = "";
             // 项目相关
-            this.currentItemIndex = null;
+            this.currentItemIndex = 0;
             this.currentItem = null;
             // 脚本相关
-            this.currentScriptKey = null;
+            this.currentScriptKey = "";
             // 编辑器和配置
             this.codeEditor = null;
             this.config = { dataPath: '', scriptSavePath: '' };
@@ -39,13 +40,12 @@
             this.propertyStatusElement = null;
             this.scriptListKeyListener = null;
             this.projectileTemplates = [];
-            this.projectileFilePath = null;
+            this.projectileFilePath = "";
             this.projectileCustomFiles = Object.create(null);
             this.projectileResources = Object.create(null);
             this.projectileSelectedTemplateIndex = 1;
             this.projectileSegments = [];
             this.projectilePreviewSprite = null;
-            this.projectilePanelRendered = false;
         }
         // 重置数据状态
         resetData() {
@@ -68,7 +68,7 @@
         }
     }
 
-    // ✅ 全局应用状态实例
+    //全局应用状态实例
     const appState = new AppState();
 
     // ===== 基础属性配置 =====
@@ -190,7 +190,6 @@
             this.projectileEnemyStatus = document.getElementById('projectileEnemyStatus');
             this.projectileActorStatus = document.getElementById('projectileActorStatus');
             this.projectileWeaponStatus = document.getElementById('projectileWeaponStatus');
-            this.projectileTemplateSelect = document.getElementById('projectileTemplateSelect');
             this.projectileCreateTemplateBtn = document.getElementById('projectileCreateTemplateBtn');
             this.projectileTemplateName = document.getElementById('projectileTemplateName');
             this.projectileStartAnimationId = document.getElementById('projectileStartAnimationId');
@@ -508,11 +507,8 @@
             // 如果已存在,更新访问顺序
             if (cache.has(filePath)) {
                 lru.moveToTail(filePath);  //O(1) 操作
-                const item = PathItemPool.get();
                 const old = cache.get(filePath);
-                PathItemPool.return(old);
-                item.init(filePath, fileName, Date.now(), data);
-                cache.set(filePath, item);
+                old.init(filePath, fileName, Date.now(), data);
                 return;
             }
             // 如果缓存已满,移除最久未访问的项
@@ -645,9 +641,14 @@
             inputDialogConfirm.onclick = null;
             inputDialogCancel.onclick = null;
             inputDialogInput.onkeypress = null;
+            inputDialogInput.value = '';
+            inputDialogInput.disabled = true;
+            inputDialogInput.setAttribute('readonly', 'readonly');
             inputDialog.classList.add('hidden');
-            clearTimeout(inputTimeout);
-            inputTimeout = 0;
+            if (inputTimeout) {
+                clearTimeout(inputTimeout);
+                inputTimeout = 0;
+            }
             inputState.resolve(value);
             inputState.resolve = null;
         }
@@ -660,9 +661,14 @@
             inputDialogConfirm.onclick = null;
             inputDialogCancel.onclick = null;
             inputDialogInput.onkeypress = null;
+            inputDialogInput.value = '';
+            inputDialogInput.disabled = true;
+            inputDialogInput.setAttribute('readonly', 'readonly');
             inputDialog.classList.add('hidden');
-            clearTimeout(inputTimeout);
-            inputTimeout = 0;
+            if (inputTimeout) {
+                clearTimeout(inputTimeout);
+                inputTimeout = 0;
+            }
             inputState.resolve(null);
             inputState.resolve = null;
         }
@@ -793,9 +799,6 @@
                 pickBtn.onclick = () => handleProjectilePick(type);
             }
             setProjectileStatus(type, '尚未加载');
-        }
-        if (DOM.projectileTemplateSelect && !DOM.projectileTemplateSelect.onchange) {
-            DOM.projectileTemplateSelect.onchange = handleProjectileTemplateSelectChange;
         }
         if (DOM.projectileCreateTemplateBtn && !DOM.projectileCreateTemplateBtn.onclick) {
             DOM.projectileCreateTemplateBtn.onclick = createProjectileTemplate;
@@ -1080,14 +1083,26 @@
         if (!DOM.projectileActorOffsetX || !DOM.projectileActorOffsetY) return;
         const actorId = Number(DOM.projectileActorSelect?.value) || 0;
         const weaponId = Number(DOM.projectileWeaponOffsetSelect?.value) || 0;
-        const weapon = getProjectileDataArray('weapon')[weaponId];
+        const weaponData = getProjectileDataArray('weapon');
+        if (weaponData === null) {
+            DOM.projectileActorOffsetX.value = 0;
+            DOM.projectileActorOffsetY.value = 0;
+            return;
+        }
+        const weapon = weaponData[weaponId];
         if (!weapon) {
             DOM.projectileActorOffsetX.value = 0;
             DOM.projectileActorOffsetY.value = 0;
             return;
         }
         const wtypeId = weapon.wtypeId;
-        const actor = findProjectileEntryById(getProjectileDataArray('actor'), actorId);
+        const actorData = getProjectileDataArray('actor');
+        if (actorData === null) {
+            DOM.projectileActorOffsetX.value = 0;
+            DOM.projectileActorOffsetY.value = 0;
+            return;
+        }
+        const actor = findProjectileEntryById(actorData, actorId);
         const offset = actor?.projectileOffset?.[wtypeId] ?? emptyPoint;
         DOM.projectileActorOffsetX.value = offset.x ?? 0;
         DOM.projectileActorOffsetY.value = offset.y ?? 0;
@@ -1097,7 +1112,13 @@
         if (!DOM.projectileEnemyOffsetX || !DOM.projectileEnemyOffsetY) return;
         const enemyId = Number(DOM.projectileEnemySelect?.value) || 0;
         const skillId = Number(DOM.projectileSkillSelect?.value) || 0;
-        const enemy = findProjectileEntryById(getProjectileDataArray('enemy'), enemyId);
+        const enemyData = getProjectileDataArray('enemy');
+        if (enemyData === null) {
+            DOM.projectileEnemyOffsetX.value = 0;
+            DOM.projectileEnemyOffsetY.value = 0;
+            return;
+        }
+        const enemy = findProjectileEntryById(enemyData, enemyId);
         const offset = enemy?.projectileOffset?.[skillId] ?? { x: 0, y: 0 };
         DOM.projectileEnemyOffsetX.value = offset.x ?? 0;
         DOM.projectileEnemyOffsetY.value = offset.y ?? 0;
@@ -1383,7 +1404,7 @@
         try {
             await loadProjectileDataResource(type, fileValue);
             updateStatus(`✅ ${config.label} 已加载`);
-            renderProjectilePanel().catch(Function.empty);
+            renderProjectilePanel();
         } catch (error) {
             setProjectileStatus(type, '加载失败');
             showError(`加载 ${config.label} 失败: ${error.message}`);
@@ -1423,10 +1444,15 @@
         if (!filePath) {
             throw new Error('数据目录未配置');
         }
+        const projectileResources = appState.projectileResources;
+        let resource = projectileResources[type];
+        if (resource) {
+            return resource;
+        }
         const raw = await electronAPI.readFile(filePath);
         const parsed = JSON.parse(raw);
         const rows = Array.isArray(parsed) ? parsed : [parsed];
-        appState.projectileResources[type] = {
+        resource = projectileResources[type] = {
             filePath,
             fileName: fileValue,
             data: rows
@@ -1436,37 +1462,25 @@
         populateProjectileCharacterSelects();
         refreshActorOffsetInputs();
         refreshEnemyOffsetInputs();
-        return appState.projectileResources[type];
+        return resource;
     }
 
-    async function renderProjectilePanel() {
+    function renderProjectilePanel() {
         if (!DOM.projectileModePanel) return;
-        if (appState.projectilePanelRendered) return;
-        await ensureProjectileTemplatesLoaded();
-        populateProjectileTemplateSelect();
+        ensureProjectileTemplatesLoaded();
         refreshProjectileResourceStatuses();
         populateProjectileCharacterSelects();
         refreshActorOffsetInputs();
         refreshEnemyOffsetInputs();
-        appState.projectilePanelRendered = true;
         const preferredIndex = isProjectileFileActive() && appState.currentItemIndex
             ? appState.currentItemIndex
             : appState.projectileSelectedTemplateIndex;
         focusProjectileTemplate(preferredIndex || 1);
     }
 
-    function createDefaultTemplates() {
-        const result = [];
-        for (let i = 0; i < DEFAULT_PROJECTILE_TEMPLATES.length; i++) {
-            const template = DEFAULT_PROJECTILE_TEMPLATES[i];
-            result[i] = template ? { ...template } : null;
-        }
-        return result;
-    }
-
     function createBlankProjectileTemplate(name) {
         return {
-            name: name || `新弹道 ${Date.now()}`,
+            name: name || `新弹道`,
             startAnimationId: 0,
             launchAnimation: {
                 animationId: 0,
@@ -1476,7 +1490,9 @@
         };
     }
 
-    async function ensureProjectileTemplatesLoaded() {
+    function ensureProjectileTemplatesLoaded() {
+        if (appState.isProjectileFileLoaded) return appState.projectileTemplates;
+        appState.isProjectileFileLoaded = true;
         if (isProjectileFileActive() && Array.isArray(appState.currentData)) {
             appState.projectileTemplates = appState.currentData;
             appState.projectileSelectedTemplateIndex = Math.min(
@@ -1486,13 +1502,6 @@
             normalizeProjectileTemplates(appState.projectileTemplates);
             return appState.projectileTemplates;
         }
-        if (appState.projectileTemplates.length > 1) {
-            normalizeProjectileTemplates(appState.projectileTemplates);
-            return appState.projectileTemplates;
-        }
-        appState.projectileTemplates = createDefaultTemplates();
-        appState.projectileSelectedTemplateIndex = 1;
-        return appState.projectileTemplates;
     }
 
     function normalizeProjectileTemplates(templates) {
@@ -1514,36 +1523,16 @@
         }
     }
 
-    function populateProjectileTemplateSelect() {
-        const select = DOM.projectileTemplateSelect;
-        if (!select) return;
-        select.innerHTML = '';
-        const templates = appState.projectileTemplates;
-        const fragment = document.createDocumentFragment();
-        for (let i = 1; i < templates.length; i++) {
-            const template = templates[i];
-            if (!template) continue;
-            const option = document.createElement('option');
-            option.value = i;
-            option.textContent = `#${i} ${template.name || '未命名'}`;
-            fragment.appendChild(option);
-        }
-        if (!fragment.childNodes.length) {
-            const option = document.createElement('option');
-            option.value = 1;
-            option.textContent = `#1 ${DEFAULT_PROJECTILE_TEMPLATES[1].name}`;
-            fragment.appendChild(option);
-            appState.projectileTemplates[1] = DEFAULT_PROJECTILE_TEMPLATES[1];
-        }
-        select.appendChild(fragment);
-        const targetIndex = Math.max(1, Math.min(appState.projectileSelectedTemplateIndex, templates.length - 1));
-        select.value = targetIndex;
-        appState.projectileSelectedTemplateIndex = targetIndex;
-    }
-
     function markItemListActive(index) {
+        if (index === appState.currentItemIndex) {
+            return;
+        }
+        appState.currentItemIndex = index;
         const itemList = DOM.itemList;
-        if (!itemList) return;
+        const oldActive = document.querySelector('.list-item.active');
+        if (oldActive) {
+            oldActive.classList.remove('active');
+        }
         const target = itemList.querySelector(`[data-index="${index}"]`);
         if (target) {
             target.classList.add('active');
@@ -1557,15 +1546,11 @@
         markItemListActive(index);
     }
 
-    function focusProjectileTemplate(index, options = {}) {
-        if (!appState.projectilePanelRendered || !DOM.projectileTemplateSelect) {
-            return false;
-        }
+    function focusProjectileTemplate(index) {
         const templates = appState.projectileTemplates;
         if (!Array.isArray(templates) || templates.length <= 1) {
             return false;
         }
-        const { skipDropdownUpdate = false } = options;
         let targetIndex = Number(index) || 1;
         const maxIndex = templates.length - 1;
         if (targetIndex > maxIndex) {
@@ -1575,10 +1560,6 @@
             targetIndex = 1;
         }
         const template = templates[targetIndex] || DEFAULT_PROJECTILE_TEMPLATES[1];
-        appState.projectileSelectedTemplateIndex = targetIndex;
-        if (!skipDropdownUpdate) {
-            DOM.projectileTemplateSelect.value = String(targetIndex);
-        }
         updateProjectileTemplateForm(template);
         return true;
     }
@@ -1595,42 +1576,42 @@
         renderProjectileSegments();
     }
 
-    function readProjectileTemplateForm() {
+    function readProjectileTemplateForm(index = appState.currentItemIndex) {
         if (!DOM.projectileTemplateName) {
             return DEFAULT_PROJECTILE_TEMPLATES[1];
+        }
+        const projectileTemplates = appState.projectileTemplates;
+        let object = projectileTemplates[index];
+        if (!object) {
+            object = { ...DEFAULT_PROJECTILE_TEMPLATES[1] };
+            projectileTemplates[index] = object;
         }
         const name = DOM.projectileTemplateName.value.trim() || '未命名弹道';
         const startAnimationId = Number(DOM.projectileStartAnimationId.value) || 0;
         const launchAnimationId = Number(DOM.projectileLaunchAnimationId.value) || 0;
         const endAnimationId = Number(DOM.projectileEndAnimationId.value) || 0;
-        return {
-            name,
-            startAnimationId,
-            launchAnimation: {
-                animationId: launchAnimationId,
-                segments: appState.projectileSegments
-            },
-            endAnimationId: endAnimationId
-        };
+        object.name = name;
+        object.startAnimationId = startAnimationId;
+        object.launchAnimation.animationId = launchAnimationId;
+        object.launchAnimation.segments = appState.projectileSegments;
+        object.endAnimationId = endAnimationId;
+        return object;
     }
 
     async function saveProjectileTemplate() {
-        if (!DOM.projectileTemplateSelect) return;
-        const index = Number(DOM.projectileTemplateSelect.value) || 1;
-        const template = readProjectileTemplateForm();
+        const index = appState.currentItemIndex;
+        const template = readProjectileTemplateForm(index);
         appState.projectileTemplates[index] = template;
         try {
             await persistProjectileTemplates();
-            syncProjectileSidebarEntry(index, template);
             updateStatus('✅ 弹道模板已保存');
-            await renderProjectilePanel();
+            renderProjectilePanel();
         } catch (error) {
             showError('保存弹道模板失败: ' + error.message);
         }
     }
 
     async function persistProjectileTemplates() {
-        await ensureProjectileTemplatesLoaded();
         if (!isProjectileFileActive() || !appState.projectileFilePath) {
             throw new Error('请先在左侧打开 Projectile.json 文件');
         }
@@ -1638,33 +1619,13 @@
         updateFileCache();
     }
 
-    function handleProjectileTemplateSelectChange() {
-        if (!DOM.projectileTemplateSelect) return;
-        const index = Number(DOM.projectileTemplateSelect.value) || 1;
-        if (!focusProjectileTemplate(index, { skipDropdownUpdate: true })) {
-            return;
-        }
-        if (isProjectileFileActive()) {
-            markItemListActive(index);
-            if (Array.isArray(appState.currentData)) {
-                appState.currentItemIndex = index;
-                appState.currentItem = appState.currentData[index];
-            }
-        }
-    }
-
     async function createProjectileTemplate() {
         try {
-            await ensureProjectileTemplatesLoaded();
             const templates = appState.projectileTemplates;
             const newIndex = Math.max(1, templates.length);
             const template = createBlankProjectileTemplate(`新弹道 #${newIndex}`);
             templates[newIndex] = template;
             appState.projectileSelectedTemplateIndex = newIndex;
-            populateProjectileTemplateSelect();
-            if (DOM.projectileTemplateSelect) {
-                DOM.projectileTemplateSelect.value = String(newIndex);
-            }
             updateProjectileTemplateForm(template);
             await persistProjectileTemplates();
             syncProjectileSidebarEntry(newIndex, template);
@@ -1768,7 +1729,7 @@
     }
 
     async function previewProjectileTemplate() {
-        const template = readProjectileTemplateForm();
+        const template = readProjectileTemplateForm(appState.currentItemIndex);
         if (!template) {
             throw new Error('弹道模板无效');
         }
@@ -2008,13 +1969,31 @@
         if (normalized.startsWith('//') && (!scriptDir || !scriptDir.startsWith('//'))) {
             return normalized;
         }
+        const relativePrefix = getScriptRelativePrefix();
+        if (
+            scriptDir &&
+            relativePrefix &&
+            needsScriptsRootLeadingSlash(relativePrefix) &&
+            normalized.startsWith('/')
+        ) {
+            const trimmedLeading = normalized.replace(LEADING_SLASH_REGEXP, '');
+            const lowerTrimmed = trimmedLeading.toLowerCase();
+            const lowerPrefix = relativePrefix.toLowerCase();
+            if (lowerTrimmed === lowerPrefix) {
+                return scriptDir;
+            }
+            const prefixWithSlash = `${lowerPrefix}/`;
+            if (lowerTrimmed.startsWith(prefixWithSlash)) {
+                const relativeTail = trimmedLeading.slice(relativePrefix.length + 1);
+                return normalizeSlashes(`${scriptDir}/${relativeTail}`);
+            }
+        }
         if (isAbsolutePath(normalized)) {
             return normalized;
         }
         if (!scriptDir) {
             return normalized.replace(LEADING_DOT_SLASH_REGEXP, '').replace(LEADING_SLASH_REGEXP, '');
         }
-        const relativePrefix = getScriptRelativePrefix();
         let relativePath = normalized.replace(LEADING_DOT_SLASH_REGEXP, '').replace(LEADING_SLASH_REGEXP, '');
         if (relativePrefix) {
             if (relativePath === relativePrefix) {
@@ -2029,15 +2008,11 @@
         return normalizeSlashes(`${scriptDir}/${relativePath}`);
     }
 
-    function normalizePathForCompare(pathValue) {
-        return pathValue ? normalizeSlashes(pathValue).toLowerCase() : '';
-    }
-
     function isProjectileFileActive() {
         if (!appState.currentFilePath || !appState.projectileFilePath) {
             return false;
         }
-        return normalizePathForCompare(appState.currentFilePath) === normalizePathForCompare(appState.projectileFilePath);
+        return appState.currentFilePath === appState.projectileFilePath;
     }
 
     function isProjectileDataFileName(fileName) {
@@ -2056,14 +2031,6 @@
         }
     }
 
-    function normalizeScriptPaths(dataArray) {
-        if (!Array.isArray(dataArray)) {
-            return;
-        }
-        for (let i = 1; i < dataArray.length; i++) {
-            normalizeItemScriptPaths(dataArray[i]);
-        }
-    }
     // ===== 数据验证函数 =====
     //检查数据项是否有note或params属性，只有存在这些属性才能编辑
     function canEditNoteOrProperty(item) {
@@ -2205,7 +2172,7 @@
         if (!appState.currentFilePath || !appState.currentFile || !appState.currentData) {
             return;
         }
-        normalizeScriptPaths(appState.currentData);
+        //normalizeScriptPaths(appState.currentData);
         // 深拷贝当前数据并更新缓存
         FileCacheManager.cache(appState.currentFilePath, appState.currentFile, appState.currentData);
     }
@@ -2215,7 +2182,7 @@
             return;
         }
         showLoading(true, loadingLabel);
-        normalizeScriptPaths(appState.currentData);
+        //normalizeScriptPaths(appState.currentData);
         try {
             await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2));
             // 保存成功后更新缓存
@@ -2290,12 +2257,11 @@
         }
     }
 
-    async function switchMode(mode) {
+    function switchMode(mode) {
         // 设置模式（即使模式相同，也要检查文件状态）
         const modeChanged = appState.uiMode !== mode;
-        if (modeChanged) {
-            appState.setMode(mode);
-        }
+        if (!modeChanged) return;
+        appState.setMode(mode);
         // 如果没有文件加载，显示空状态提示（无论模式是否改变）
         if (!hasFileLoaded()) {
             showEmptyState();
@@ -2318,17 +2284,8 @@
             if (DOM.projectileModePanel) {
                 DOM.projectileModePanel.classList.remove('hidden');
             }
-            if (!appState.projectilePanelRendered) {
-                try {
-                    await renderProjectilePanel();
-                } catch (error) {
-                    showError('弹道模式初始化失败: ' + error.message);
-                }
-            }
+            renderProjectilePanel();
         } else {
-            if (modeChanged && appState.uiMode === 'projectile') {
-                appState.projectilePanelRendered = false;
-            }
             // script 模式
             hideAllModePanels();
             DOM.scriptPanel.classList.remove('hidden');
@@ -2951,7 +2908,6 @@
                     appState.projectileSelectedTemplateIndex,
                     Math.max(1, currentData.length - 1)
                 );
-                appState.projectilePanelRendered = false;
             }
             //性能优化：为所有有 note 的数据项提取元数据（使用缓存优化）
             updateFileCache();
@@ -2977,7 +2933,7 @@
             updateStatus(`已加载 ${fileName}${fromCache ? '（从缓存）' : ''}，共 ${currentData.length - 1} 个项目`);
             // 自动选择第一个项目
             if (currentData && currentData.length > 1) {
-                selectItem(1);
+                selectItem(appState.currentItemIndex);
             }
         } catch (error) {
             console.error('[Renderer] 处理文件失败:', error);
@@ -3042,12 +2998,23 @@
         DisabledManager.apply(DOM.clearCodeBtn, !hasScripts);
     }
     //处理代码编辑器点击事件（当被禁用时显示提示）
+    let newScriptTimeout = null;
+    function onNewScriptTimeout() {
+        const newScriptBtn = DOM.scriptList?.querySelector('.new-script-btn');
+        if (newScriptBtn) {
+            newScriptBtn.style.animation = '';
+        }
+        if (newScriptTimeout) {
+            clearTimeout(newScriptTimeout);
+        }
+        newScriptTimeout = null;
+    }
     function handleCodeEditorClick(e) {
         if (!DOM.codeEditorContainer || appState.uiMode !== 'script') {
             return;
         }
         const currentItem = appState.currentItem;
-        const scripts = currentItem && currentItem.scripts ? Object.keys(currentItem.scripts) : [];
+        const scripts = currentItem && currentItem.scripts ? Object.keys(currentItem.scripts) : Array.empty;
         const hasScripts = scripts.length > 0;
         //如果没有脚本，显示提示
         if (!hasScripts) {
@@ -3058,11 +3025,7 @@
             const newScriptBtn = DOM.scriptList?.querySelector('.new-script-btn');
             if (newScriptBtn) {
                 newScriptBtn.style.animation = 'pulse 0.5s ease-in-out 3';
-                setTimeout(() => {
-                    if (newScriptBtn.style) {
-                        newScriptBtn.style.animation = '';
-                    }
-                }, 1500);
+                newScriptTimeout = setTimeout(onNewScriptTimeout, 1500);
             }
         }
     }
@@ -3270,7 +3233,6 @@
     function displayItemList() {
         const itemList = DOM.itemList;
         if (!itemList) return;
-
         const pool = getListItemPool();
         // 回收现有项
         const existingItems = itemList.querySelectorAll('.list-item');
@@ -3281,7 +3243,6 @@
             }
         }
         itemList.innerHTML = '';
-
         const currentData = appState.currentData;
         if (!currentData || currentData.length === 0) {
             itemList.innerHTML = '<div class="empty-state">数据为空</div>';
@@ -3292,18 +3253,14 @@
         for (let i = 1; i < currentData.length; i++) {
             const item = currentData[i];
             if (item === null) continue;
-
             const itemId = item.id || i;
             const itemName = item.name || `[无名]`;
-
             const listItem = pool.get();
             const itemEl = listItem.init(i, itemId, itemName);
             itemEl.__listItem = listItem; // 绑定引用以便回收
-
             fragment.appendChild(itemEl);
         }
         itemList.appendChild(fragment);
-
         // 为整个列表容器设置事件委托
         setupItemListDelegate();
     }
@@ -3330,10 +3287,12 @@
     }
 
     function selectItem(index) {
+        if (index === appState.currentItemIndex) {
+            return;
+        }
         appState.currentItemIndex = index;
         appState.currentItem = appState.currentData[index];
         appState.currentScriptKey = null;
-
         // 更新活跃状态（只影响必要元素）
         const oldActive = document.querySelector('.list-item.active');
         if (oldActive) {
@@ -3343,13 +3302,11 @@
         if (selectedListEl) {
             selectedListEl.classList.add('active');
         }
-
         // 更新脚本项（如果有）
         const oldScriptActive = document.querySelector('.script-item.active');
         if (oldScriptActive) {
             oldScriptActive.classList.remove('active');
         }
-
         // 清空编辑器
         if (appState.codeEditor) {
             appState.codeEditor.setValue('');
@@ -3358,7 +3315,6 @@
         displayScriptList();
         //更新代码编辑器状态（根据脚本数量）
         updateCodeEditorState();
-
         // 更新路径和状态
         const itemName = appState.currentItem.name || '未命名';
         const itemId = appState.currentItem.id || index;
@@ -3488,7 +3444,7 @@
         delete currentItem.scripts[deletedKey];
         appState.currentData[appState.currentItemIndex] = currentItem;
         try {
-            normalizeScriptPaths(appState.currentData);
+            //normalizeScriptPaths(appState.currentData);
             await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2));
             // 保存成功后更新缓存
             updateFileCache();
@@ -3762,7 +3718,6 @@
             ScriptCacheManager.set(filePath, wrappedCode);
             // 3. 保存 JSON 文件
             appState.currentData[appState.currentItemIndex] = currentItem;
-            normalizeScriptPaths(appState.currentData);
             const jsonContent = JSON.stringify(appState.currentData, null, 2);
             await electronAPI.writeFile(appState.currentFilePath, jsonContent);
             // 保存成功后更新缓存
