@@ -214,15 +214,15 @@
                                     </label>
                                     <label>
                                         起始动画 ID
-                                        <input id="projectileStartAnimationId" type="number" min="0" placeholder="1">
+                                        <select id="projectileStartAnimationSelect" class="theme-select"></select>
                                     </label>
                                     <label>
                                         发射动画 ID
-                                        <input id="projectileLaunchAnimationId" type="number" min="0" placeholder="1">
+                                        <select id="projectileLaunchAnimationSelect" class="theme-select"></select>
                                     </label>
                                     <label>
                                         结束动画 ID
-                                        <input id="projectileEndAnimationId" type="number" min="0" placeholder="1">
+                                        <select id="projectileEndAnimationSelect" class="theme-select"></select>
                                     </label>
                                 </div>
                                 <div class="projectile-template-actions">
@@ -237,11 +237,11 @@
                                     <div class="projectile-offset-grid">
                                         <label>
                                             <span>角色</span>
-                                            <select id="projectileActorSelect"></select>
+                                        <select id="projectileActorSelect" class="theme-select"></select>
                                         </label>
                                         <label>
                                             <span>武器</span>
-                                            <select id="projectileWeaponOffsetSelect"></select>
+                                        <select id="projectileWeaponOffsetSelect" class="theme-select"></select>
                                         </label>
                                         <label>
                                             <span>Offset X</span>
@@ -261,11 +261,11 @@
                                     <div class="projectile-offset-grid">
                                         <label>
                                             <span>敌人</span>
-                                            <select id="projectileEnemySelect"></select>
+                                        <select id="projectileEnemySelect" class="theme-select"></select>
                                         </label>
                                         <label>
                                             <span>技能</span>
-                                            <select id="projectileSkillSelect"></select>
+                                        <select id="projectileSkillSelect" class="theme-select"></select>
                                         </label>
                                         <label>
                                             <span>Offset X</span>
@@ -299,27 +299,27 @@
                             <div class="projectile-role-row">
                                 <label>
                                     发射者
-                                    <select id="projectileEmitterRoleSelect">
+                                    <select id="projectileEmitterRoleSelect" class="theme-select">
                                         <option value="actor">友方</option>
                                         <option value="enemy">敌方</option>
                                     </select>
                                 </label>
                                 <label>
                                     角色/敌人
-                                    <select id="projectileEmitterCharacterSelect"></select>
+                                    <select id="projectileEmitterCharacterSelect" class="theme-select"></select>
                                 </label>
                             </div>
                             <div class="projectile-role-row">
                                 <label>
                                     目标类型
-                                    <select id="projectileTargetRoleSelect">
+                                    <select id="projectileTargetRoleSelect" class="theme-select">
                                         <option value="actor">友方</option>
                                         <option value="enemy">敌方</option>
                                     </select>
                                 </label>
                                 <label>
                                     角色/敌人
-                                    <select id="projectileTargetCharacterSelect"></select>
+                                    <select id="projectileTargetCharacterSelect" class="theme-select"></select>
                                 </label>
                             </div>
                         </div>

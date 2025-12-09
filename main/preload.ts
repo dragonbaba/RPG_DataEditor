@@ -21,7 +21,8 @@ interface ElectronAPI {
     processArgv: () => Promise<string>;
     readConfig: () => Promise<any>;
     writeConfig: (config: any) => Promise<boolean>;
-    setMode: (mode: string) => void;
+    pickWorkspace: () => Promise<string | null>;
+    listDtsFiles: (workspaceRoot: string) => Promise<string[]>;
     versions: {
         node: string;
         chrome: string;
@@ -61,7 +62,10 @@ const electronAPI: ElectronAPI = {
     // Config APIs
     readConfig: () => ipcRenderer.invoke('read-config'),
     writeConfig: (config: any) => ipcRenderer.invoke('write-config', config),
-    setMode: (mode: string) => ipcRenderer.send('mode-changed', mode),
+
+    // Workspace picker
+    pickWorkspace: () => ipcRenderer.invoke('pick-workspace'),
+    listDtsFiles: (workspaceRoot: string) => ipcRenderer.invoke('list-dts-files', workspaceRoot),
 
     // Version info
     versions: {
@@ -74,6 +78,8 @@ const validChannels = [
     'file-loaded',
     'set-data-path',
     'set-script-path',
+    'set-workspace-path',
+    'load-workspace',
     'save-settings',
     'switch-mode',
     'show-history-files',

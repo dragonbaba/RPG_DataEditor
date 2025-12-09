@@ -27,7 +27,7 @@
             this.currentScriptKey = "";
             // 编辑器和配置
             this.codeEditor = null;
-            this.config = { dataPath: '', scriptSavePath: '' };
+            this.config = { dataPath: '', scriptSavePath: '', workspaceRoot: '' };
             this.configDirty = false;
             // UI 模式
             this.uiMode = '';
@@ -42,7 +42,8 @@
             this.projectileTemplates = [];
             this.projectileFilePath = "";
             this.projectileCustomFiles = Object.create(null);
-            this.projectileResources = Object.create(null);
+            // 记录各数据类型对应的已加载文件路径，用于复用 FileCacheManager 缓存
+            this.projectileDataPaths = Object.create(null);
             this.projectileSelectedTemplateIndex = 1;
             this.projectileSegments = [];
             this.projectilePreviewSprite = null;
@@ -192,9 +193,9 @@
             this.projectileWeaponStatus = document.getElementById('projectileWeaponStatus');
             this.projectileCreateTemplateBtn = document.getElementById('projectileCreateTemplateBtn');
             this.projectileTemplateName = document.getElementById('projectileTemplateName');
-            this.projectileStartAnimationId = document.getElementById('projectileStartAnimationId');
-            this.projectileLaunchAnimationId = document.getElementById('projectileLaunchAnimationId');
-            this.projectileEndAnimationId = document.getElementById('projectileEndAnimationId');
+            this.projectileStartAnimationSelect = document.getElementById('projectileStartAnimationSelect');
+            this.projectileLaunchAnimationSelect = document.getElementById('projectileLaunchAnimationSelect');
+            this.projectileEndAnimationSelect = document.getElementById('projectileEndAnimationSelect');
             this.projectileSaveTemplateBtn = document.getElementById('projectileSaveTemplateBtn');
             this.projectilePreviewContainer = document.getElementById('projectilePreviewContainer');
             this.projectilePlayTestBtn = document.getElementById('projectilePlayTestBtn');
@@ -252,6 +253,15 @@
         { label: '弹跳超过缓出', value: 'easeOutBounce' },
         { label: '弹跳超过缓入缓出', value: 'easeInOutBounce' }
     ];
+
+    // 弹道依赖数据文件名映射（用于从通用加载登记状态）
+    const PROJECTILE_DATA_FILE_MAP = {
+        animation: 'animations.json',
+        enemy: 'enemies.json',
+        skill: 'skills.json',
+        actor: 'actors.json',
+        weapon: 'weapons.json'
+    };
 
     const PROJECTILE_DATA_CONFIG = {
         animation: {
@@ -690,8 +700,8 @@
         initializeProjectilePanel();
         initializeHistoryFilesDialog();
         attachEventListeners();
-        initializeCodeEditor();
         await loadConfig();
+        initializeCodeEditor();
         listenMenuEvents();
         await ensurePathsConfigured();
         // 初始化时检查文件状态，如果没有文件则显示空状态
@@ -812,6 +822,7 @@
         bindProjectileRoleSelectors();
         bindProjectileOffsetListeners();
         setupProjectileSegmentControls();
+        populateAnimationSelects();
     }
 
     function populateProjectileFileSelects() {
@@ -842,11 +853,13 @@
     }
 
     function getProjectileDataArray(type) {
-        const resource = appState.projectileResources[type];
-        if (!resource || !Array.isArray(resource.data)) {
+        const path = appState.projectileDataPaths?.[type];
+        if (!path) return null;
+        const cached = FileCacheManager.get(path);
+        if (!cached || !Array.isArray(cached.data)) {
             return null;
         }
-        return resource.data;
+        return cached.data;
     }
 
     function populateProjectileCharacterSelects() {
@@ -856,6 +869,7 @@
         populateCharacterList(DOM.projectileTargetCharacterSelect, getProjectileDataArray(DOM.projectileTargetRoleSelect?.value || 'actor'));
         populateWeaponList();
         populateSkillList();
+        populateAnimationSelects();
     }
 
     // Option类用于对象池
@@ -1072,6 +1086,36 @@
         select.appendChild(fragment);
     }
 
+    function populateAnimationSelect(targetSelect) {
+        if (!targetSelect) return;
+        const data = getProjectileDataArray('animation');
+        targetSelect.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+        const optionPool = getOptionPool();
+        const empty = optionPool.get();
+        empty.element.value = '';
+        empty.element.textContent = data ? '选择动画' : '未加载';
+        fragment.appendChild(empty.element);
+        if (data) {
+            for (let i = 1; i < data.length; i++) {
+                const anim = data[i];
+                if (!anim) continue;
+                const optionObj = optionPool.get();
+                const id = anim.id ?? i;
+                optionObj.element.value = id;
+                optionObj.element.textContent = `${id} · ${anim.name || '未命名动画'}`;
+                fragment.appendChild(optionObj.element);
+            }
+        }
+        targetSelect.appendChild(fragment);
+    }
+
+    function populateAnimationSelects() {
+        populateAnimationSelect(DOM.projectileStartAnimationSelect);
+        populateAnimationSelect(DOM.projectileLaunchAnimationSelect);
+        populateAnimationSelect(DOM.projectileEndAnimationSelect);
+    }
+
     function findProjectileEntryById(dataArray, id) {
         if (!Array.isArray(dataArray)) return null;
         const numId = Number(id);
@@ -1130,7 +1174,7 @@
         if (!resource || !resource.filePath) {
             throw new Error('未找到数据文件路径');
         }
-        await electronAPI.writeFile(resource.filePath, JSON.stringify(dataArray, null, 2));
+        await electronAPI.writeFile(resource.filePath, JSON.stringify(dataArray, null, 2), 'utf-8');
         updateStatus(`✅ ${resource.fileName || type} 已保存`);
     }
 
@@ -1355,6 +1399,7 @@
             const easeXLabel = easeXLabelObj.element;
             easeXLabel.textContent = 'X 缓动';
             const easeXSelect = document.createElement('select');
+            easeXSelect.className = 'theme-select';
             easeXSelect.dataset.field = 'easeX';
             const easeXFragment = document.createDocumentFragment();
             for (let k = 0; k < PROJECTILE_EASE_OPTIONS.length; k++) {
@@ -1372,6 +1417,7 @@
             const easeYLabel = easeYLabelObj.element;
             easeYLabel.textContent = 'Y 缓动';
             const easeYSelect = document.createElement('select');
+            easeYSelect.className = 'theme-select';
             easeYSelect.dataset.field = 'easeY';
             const easeYFragment = document.createDocumentFragment();
             for (let k = 0; k < PROJECTILE_EASE_OPTIONS.length; k++) {
@@ -1427,6 +1473,7 @@
             const fileName = filePath.split(TRANSFORM_REGEXP).pop() || filePath;
             appState.projectileCustomFiles[type] = { path: filePath, label: fileName };
             populateProjectileFileSelects();
+            invalidateProjectileResources(type);
             await loadProjectileDataResource(type, filePath);
             updateStatus(`✅ ${config.label} 已加载 (${fileName})`);
         } catch (error) {
@@ -1444,25 +1491,26 @@
         if (!filePath) {
             throw new Error('数据目录未配置');
         }
-        const projectileResources = appState.projectileResources;
-        let resource = projectileResources[type];
-        if (resource) {
-            return resource;
+        // 优先使用通用文件缓存，避免重复 IO
+        let cached = FileCacheManager.get(filePath);
+        let rows;
+        if (cached && Array.isArray(cached.data)) {
+            rows = cached.data;
+        } else {
+            const raw = await electronAPI.readFile(filePath);
+            const parsed = JSON.parse(raw);
+            rows = Array.isArray(parsed) ? parsed : [parsed];
+            FileCacheManager.cache(filePath, fileValue, rows);
+            cached = FileCacheManager.get(filePath);
         }
-        const raw = await electronAPI.readFile(filePath);
-        const parsed = JSON.parse(raw);
-        const rows = Array.isArray(parsed) ? parsed : [parsed];
-        resource = projectileResources[type] = {
-            filePath,
-            fileName: fileValue,
-            data: rows
-        };
+        appState.projectileDataPaths[type] = filePath;
+        const fileName = cached?.fileName || fileValue || filePath.split(/[\\/]/).pop() || '已加载';
         const count = Math.max(rows.length - 1, 0);
-        setProjectileStatus(type, `${config.label} · ${count} 条`);
+        setProjectileStatus(type, `${fileName} · ${count} 条`);
         populateProjectileCharacterSelects();
         refreshActorOffsetInputs();
         refreshEnemyOffsetInputs();
-        return resource;
+        return rows;
     }
 
     function renderProjectilePanel() {
@@ -1567,9 +1615,15 @@
     function updateProjectileTemplateForm(template) {
         if (!DOM.projectileTemplateName || !template) return;
         DOM.projectileTemplateName.value = template.name || '';
-        DOM.projectileStartAnimationId.value = template.startAnimationId ?? 0;
-        DOM.projectileLaunchAnimationId.value = template.launchAnimation?.animationId ?? 0;
-        DOM.projectileEndAnimationId.value = template.endAnimationId ?? 0;
+        if (DOM.projectileStartAnimationSelect) {
+            DOM.projectileStartAnimationSelect.value = `${template.startAnimationId ?? 0}`;
+        }
+        if (DOM.projectileLaunchAnimationSelect) {
+            DOM.projectileLaunchAnimationSelect.value = `${template.launchAnimation?.animationId ?? 0}`;
+        }
+        if (DOM.projectileEndAnimationSelect) {
+            DOM.projectileEndAnimationSelect.value = `${template.endAnimationId ?? 0}`;
+        }
         appState.projectileSegments = Array.isArray(template.launchAnimation?.segments) && template.launchAnimation.segments.length > 0
             ? template.launchAnimation.segments
             : [{ ...PROJECTILE_DEFAULT_SEGMENT }];
@@ -1587,9 +1641,9 @@
             projectileTemplates[index] = object;
         }
         const name = DOM.projectileTemplateName.value.trim() || '未命名弹道';
-        const startAnimationId = Number(DOM.projectileStartAnimationId.value) || 0;
-        const launchAnimationId = Number(DOM.projectileLaunchAnimationId.value) || 0;
-        const endAnimationId = Number(DOM.projectileEndAnimationId.value) || 0;
+        const startAnimationId = Number(DOM.projectileStartAnimationSelect?.value) || 0;
+        const launchAnimationId = Number(DOM.projectileLaunchAnimationSelect?.value) || 0;
+        const endAnimationId = Number(DOM.projectileEndAnimationSelect?.value) || 0;
         object.name = name;
         object.startAnimationId = startAnimationId;
         object.launchAnimation.animationId = launchAnimationId;
@@ -1615,7 +1669,7 @@
         if (!isProjectileFileActive() || !appState.projectileFilePath) {
             throw new Error('请先在左侧打开 Projectile.json 文件');
         }
-        await electronAPI.writeFile(appState.projectileFilePath, JSON.stringify(appState.projectileTemplates, null, 2));
+        await electronAPI.writeFile(appState.projectileFilePath, JSON.stringify(appState.projectileTemplates, null, 2), 'utf-8');
         updateFileCache();
     }
 
@@ -1648,14 +1702,32 @@
         const keys = Object.keys(PROJECTILE_DATA_CONFIG);
         for (let i = 0; i < keys.length; i++) {
             const type = keys[i];
-            const resource = appState.projectileResources[type];
-            if (!resource || !resource.data) {
+            const path = appState.projectileDataPaths?.[type];
+            const cached = path ? FileCacheManager.get(path) : null;
+            if (!cached || !Array.isArray(cached.data)) {
                 setProjectileStatus(type, '尚未加载');
                 continue;
             }
-            const count = Array.isArray(resource.data) ? Math.max(resource.data.length - 1, 0) : 0;
-            const fileName = resource.fileName || resource.filePath?.split(/[\\/]/).pop() || '已加载';
+            const count = Math.max(cached.data.length - 1, 0);
+            const fileName = cached.fileName || cached.path?.split(TRANSFORM_REGEXP).pop() || '已加载';
             setProjectileStatus(type, `${fileName} · ${count} 条`);
+        }
+    }
+
+    function invalidateProjectileResources(targetType = null, resetCustomFiles = false) {
+        if (!appState.projectileDataPaths) {
+            return;
+        }
+        if (targetType === null) {
+            appState.projectileDataPaths = Object.create(null);
+        } else {
+            delete appState.projectileDataPaths[targetType];
+        }
+        if (resetCustomFiles) {
+            appState.projectileCustomFiles = Object.create(null);
+            if (DOM.projectileAnimationFileSelect) {
+                populateProjectileFileSelects();
+            }
         }
     }
 
@@ -1705,11 +1777,11 @@
     }
 
     function findAnimationById(value) {
-        const resource = appState.projectileResources.animation;
-        if (!resource || !Array.isArray(resource.data)) return null;
+        const data = getProjectileDataArray('animation');
+        if (!data) return null;
         const target = Number(value);
-        if (!target || target < 1 || target >= resource.data.length) return null;
-        return resource.data[target] || null;
+        if (!target || target < 1 || target >= data.length) return null;
+        return data[target] || null;
     }
 
 
@@ -1877,6 +1949,9 @@
     function resolveProjectileFilePath(value) {
         const normalizedValue = value?.trim();
         if (!normalizedValue) return null;
+        if (isAbsolutePath(normalizedValue)) {
+            return normalizedValue;
+        }
         const dataDir = getDataDirectory();
         if (!dataDir) return null;
         return `${dataDir}/${normalizedValue}`;
@@ -2138,6 +2213,7 @@
             showError('请先选择文件和项目');
             return;
         }
+        let saveSuccess = false;
         //数据验证：再次检查是否可以编辑
         if (!canEditNoteOrProperty(appState.currentItem)) {
             showError('该项目没有note或params属性，无法编辑备注');
@@ -2153,17 +2229,20 @@
         appState.currentData[appState.currentItemIndex] = appState.currentItem;
         showLoading(true, '保存备注...');
         try {
-            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2));
+            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2), 'utf-8');
             // 保存成功后更新缓存
             updateFileCache();
             updateStatus('✅ 备注已保存');
             renderNotePanel();
-            //同步更新元数据面板
-            renderMetaDataPanel();
+            saveSuccess = true;
         } catch (error) {
             showError('保存备注失败: ' + error.message);
         } finally {
             showLoading(false);
+            if (saveSuccess) {
+                // 保存成功后重新渲染元数据，确保展示最新备注解析结果
+                renderMetaDataPanel();
+            }
         }
     }
 
@@ -2184,7 +2263,7 @@
         showLoading(true, loadingLabel);
         //normalizeScriptPaths(appState.currentData);
         try {
-            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2));
+            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2), 'utf-8');
             // 保存成功后更新缓存
             updateFileCache();
             updateStatus(successMessage);
@@ -2343,6 +2422,8 @@
         extractMetadata(data, force = false) {
             const note = data.note;
             if (!note) {
+                // 备注被清空时清理元数据，避免渲染残留
+                data.meta = {};
                 data.noteDirty = false;
                 return;
             }
@@ -2751,7 +2832,7 @@
         appState.currentData[appState.currentItemIndex] = currentItem;
         showLoading(true, '保存属性定义...');
         try {
-            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2));
+            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2), 'utf-8');
             // 保存成功后更新缓存
             updateFileCache();
             updateStatus('✅ 属性定义已保存');
@@ -2898,6 +2979,7 @@
     //统一处理文件数据加载（支持从缓存或新加载）
     function processFileData(fileName, filePath, data, fromCache = false) {
         try {
+            ScriptCacheManager.clear();
             appState.currentFile = fileName;
             appState.currentFilePath = filePath;
             const currentData = appState.currentData = fromCache ? data : JSON.parse(data);
@@ -2935,6 +3017,8 @@
             if (currentData && currentData.length > 1) {
                 selectItem(appState.currentItemIndex);
             }
+            // 登记弹道依赖数据文件（如动画/敌人/玩家等）
+            registerProjectileDataFile(fileName, filePath);
         } catch (error) {
             console.error('[Renderer] 处理文件失败:', error);
             showError(`处理文件失败: ${error.message}`);
@@ -2955,6 +3039,26 @@
         } else {
             showError('缓存中未找到该文件，请重新打开文件');
         }
+    }
+
+    function registerProjectileDataFile(fileName, filePath) {
+        if (!fileName || !filePath) return;
+        const lower = fileName.toLowerCase();
+        let hitType = null;
+        for (const [type, fname] of Object.entries(PROJECTILE_DATA_FILE_MAP)) {
+            if (lower === fname) {
+                hitType = type;
+                break;
+            }
+        }
+        if (!hitType) return;
+        if (!appState.projectileDataPaths) {
+            appState.projectileDataPaths = Object.create(null);
+        }
+        appState.projectileDataPaths[hitType] = filePath;
+        refreshProjectileResourceStatuses();
+        populateProjectileFileSelects();
+        populateProjectileCharacterSelects();
     }
     // ===== 脚本文件头部时间戳处理 =====
     //正则表达式：匹配脚本文件头部的时间戳行
@@ -3034,8 +3138,17 @@
         const codeEditorElement = document.getElementById('codeEditor');
         if (!codeEditorElement) return;
 
+        // 先确保用户选择工作区，未选择则中止初始化
+        const workspaceRoot = await ensureWorkspaceRoot();
+        if (!workspaceRoot) {
+            showError('未选择工作区，编辑器未初始化');
+            return;
+        }
+
         // 等待 Monaco 初始化
         await initMonaco();
+        appState.workspaceRoot = workspaceRoot;
+        await applyTsWorkspaceSettings(workspaceRoot);
         //为代码编辑器容器添加点击事件监听（处理禁用状态）
         if (DOM.codeEditorContainer && !DOM.codeEditorContainer.__clickListenerAdded) {
             DOM.codeEditorContainer.addEventListener('click', handleCodeEditorClick);
@@ -3056,9 +3169,8 @@
         });
         const editor = appState.codeEditor;
         // 清空: Ctrl+Delete / Cmd+Delete
-        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Delete, () => {
-            clearCode();
-        });
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Delete, clearCode);
+        editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyD, deleteCurrentScript);
         // 统计信息: Ctrl+Shift+S
         editor.addAction({
             id: 'show-stats',
@@ -3342,7 +3454,11 @@
         // 优化：使用缓存的 DOM，避免重复查询
         const scriptItem = e.target.closest('.script-item');
         if (scriptItem && scriptItem.dataset.script) {
-            selectScript(scriptItem.dataset.script);
+            const scriptKey = scriptItem.dataset.script;
+            if (scriptKey === appState.currentScriptKey) {
+                return;
+            }
+            selectScript(scriptKey);
         }
         if (DOM.scriptList) {
             DOM.scriptList.focus();
@@ -3409,7 +3525,7 @@
     }
 
     function handleScriptListDeleteKey(event) {
-        if (event.key !== 'Delete') {
+        if (event.key !== 'F4') {
             return;
         }
         if (appState.uiMode !== 'script' || !appState.currentScriptKey) {
@@ -3445,7 +3561,7 @@
         appState.currentData[appState.currentItemIndex] = currentItem;
         try {
             //normalizeScriptPaths(appState.currentData);
-            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2));
+            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2), 'utf-8');
             // 保存成功后更新缓存
             updateFileCache();
             updateStatus(`✅ 脚本已删除: ${deletedKey}`);
@@ -3487,9 +3603,8 @@
                 scriptContent = await electronAPI.readFile(scriptFilePath);
                 ScriptCacheManager.set(scriptFilePath, scriptContent);
             }
-            if (appState.codeEditor) {
-                appState.codeEditor.setValue(scriptContent);
-            }
+            // 使用带语言的模型加载，便于 TS/JSON 等文件获得正确服务
+            setEditorModel(scriptContent, scriptFilePath || storedPath, scriptKey);
             // 设置当前脚本键，用于保存时判断
             appState.currentScriptKey = scriptKey;
             const displayPath = storedPath || scriptFilePath;
@@ -3503,6 +3618,7 @@
     // ===== Monaco Editor 集成 =====
     let isMonacoLoaded = false;
     let monacoInitPromise = null;
+    let pendingWorkspaceRoot = null;
     const MONOKAI_THEME_JSON_PATH = '../js/monaco-pro-theme.json';
     const fallbackMonokaiTheme = {
         base: 'vs-dark',
@@ -3560,6 +3676,11 @@
                         monaco.editor.defineTheme('monokai-pro', themeToUse);
                         monaco.editor.setTheme('monokai-pro');
                         isMonacoLoaded = true;
+                            // 如果有待应用的工作区，优先应用
+                            if (pendingWorkspaceRoot) {
+                                applyTsWorkspaceSettings(pendingWorkspaceRoot);
+                                pendingWorkspaceRoot = null;
+                            }
                         resolve();
                     };
                     // 尝试加载官方 Monokai JSON 主题，失败后退回内置配色
@@ -3572,6 +3693,156 @@
             }
         });
         return monacoInitPromise;
+    }
+
+    // 按文件路径推断语言
+    function getLanguageByPath(filePath = '') {
+        if (typeof filePath !== 'string') return 'javascript';
+        const ext = filePath.split('.').pop()?.toLowerCase();
+        if (ext === 'ts' || ext === 'tsx') return 'typescript';
+        if (ext === 'json') return 'json';
+        return 'javascript';
+    }
+
+    // 将内容绑定到带语言的 Monaco 模型
+    function setEditorModel(content, filePath, fallbackName = 'untitled') {
+        if (!appState.codeEditor || !isMonacoLoaded) return;
+        const language = getLanguageByPath(filePath);
+        const safeName = fallbackName || 'untitled';
+        const uri = filePath
+            ? monaco.Uri.file(filePath)
+            : monaco.Uri.parse(`inmemory://model/${safeName}.${language}`);
+        let model = monaco.editor.getModel(uri);
+        if (!model) {
+            model = monaco.editor.createModel(content, language, uri);
+        } else {
+            model.setValue(content);
+            monaco.editor.setModelLanguage(model, language);
+        }
+        appState.codeEditor.setModel(model);
+    }
+
+    // ===== TS 工作区/类型支持 =====
+    let extraLibDisposers = [];
+
+    function clearExtraLibs() {
+        for (let i = 0; i < extraLibDisposers.length; i++) {
+            try {
+                extraLibDisposers[i].dispose?.();
+            } catch (e) {
+                console.warn('[TS] 释放 extraLib 失败', e);
+            }
+        }
+        extraLibDisposers.length = 0;
+    }
+
+    function addDtsLib(code, virtualPath) {
+        if (!monaco?.languages?.typescript) return;
+        // 同时注入 TS/JS 默认库，保证 JS 也能看到声明
+        const tsDisposer = monaco.languages.typescript.typescriptDefaults.addExtraLib(code, virtualPath);
+        const jsDefaults = monaco.languages.typescript.javascriptDefaults;
+        if (jsDefaults?.addExtraLib) {
+            extraLibDisposers.push(jsDefaults.addExtraLib(code, virtualPath));
+        }
+        extraLibDisposers.push(tsDisposer);
+    }
+
+    async function loadWorkspaceDts(workspaceRoot) {
+        if (!workspaceRoot || !monaco?.languages?.typescript) return;
+        clearExtraLibs();
+        // 依赖主进程提供的 d.ts 列表 API；没有则跳过
+        if (!electronAPI.listDtsFiles) {
+            console.warn('[TS] 缺少 listDtsFiles API，跳过工作区 .d.ts 注册');
+            return;
+        }
+        try {
+            const dtsFiles = await electronAPI.listDtsFiles(workspaceRoot);
+            if (!Array.isArray(dtsFiles) || dtsFiles.length === 0) {
+                return;
+            }
+            for (let i = 0; i < dtsFiles.length; i++) {
+                const filePath = dtsFiles[i];
+                try {
+                    const code = await electronAPI.readFile(filePath, 'utf-8');
+                    const virtualPath = monaco.Uri.file(filePath).toString();
+                    addDtsLib(code, virtualPath);
+                } catch (err) {
+                    console.warn(`[TS] 读取声明文件失败: ${filePath}`, err);
+                }
+            }
+        } catch (error) {
+            console.warn('[TS] 扫描工作区 .d.ts 失败', error);
+        }
+    }
+
+    async function configureTsDefaults(workspaceRoot) {
+        if (!monaco?.languages?.typescript) return;
+        const tsDefaults = monaco.languages.typescript.typescriptDefaults;
+        tsDefaults.setDiagnosticsOptions({
+            noSemanticValidation: false,
+            noSyntaxValidation: false
+        });
+        // 基础选项，保证 JS 也有类型提示
+        tsDefaults.setCompilerOptions({
+            allowJs: true,
+            checkJs: true,
+            target: monaco.languages.typescript.ScriptTarget.ES2020,
+            moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+            strict: false
+        });
+        // 如果有 tsconfig，按项目配置覆盖
+        if (!workspaceRoot || !electronAPI.readFile) {
+            return;
+        }
+        const tsconfigPath = `${workspaceRoot}/tsconfig.json`;
+        try {
+            const raw = await electronAPI.readFile(tsconfigPath, 'utf-8');
+            const cfg = JSON.parse(raw);
+            const opts = cfg.compilerOptions || {};
+            tsDefaults.setCompilerOptions({
+                ...opts
+            });
+        } catch (error) {
+            console.warn('[TS] 读取 tsconfig 失败，使用默认 TS 选项', error);
+        }
+    }
+
+    async function applyTsWorkspaceSettings(workspaceRoot) {
+        if (!workspaceRoot) return;
+        if (!isMonacoLoaded) {
+            pendingWorkspaceRoot = workspaceRoot;
+            return;
+        }
+        await configureTsDefaults(workspaceRoot);
+        await loadWorkspaceDts(workspaceRoot);
+    }
+
+    // 确保用户选择工作区，必要时强制弹窗
+    async function ensureWorkspaceRoot() {
+        const cfgWs = appState.config?.workspaceRoot;
+        const memWs = appState.workspaceRoot;
+        if (cfgWs) {
+            appState.workspaceRoot = cfgWs;
+            return cfgWs;
+        }
+        if (memWs) return memWs;
+        if (!electronAPI.pickWorkspace) {
+            showError('缺少 pickWorkspace 接口，无法选择工作区');
+            return null;
+        }
+        let workspacePath = null;
+        while (!workspacePath) {
+            const picked = await electronAPI.pickWorkspace();
+            if (!picked) {
+                const retry = confirm('必须选择工作区才能继续。是否重新选择？');
+                if (!retry) return null;
+                continue;
+            }
+            workspacePath = picked;
+            appState.workspaceRoot = picked;
+            updateConfigPath('workspaceRoot', picked, '工作区目录');
+        }
+        return workspacePath;
     }
 
     //自定义代码补全函数（增强 JavaScript 补全）
@@ -3719,14 +3990,15 @@
             // 3. 保存 JSON 文件
             appState.currentData[appState.currentItemIndex] = currentItem;
             const jsonContent = JSON.stringify(appState.currentData, null, 2);
-            await electronAPI.writeFile(appState.currentFilePath, jsonContent);
+            await electronAPI.writeFile(appState.currentFilePath, jsonContent, 'utf-8');
             // 保存成功后更新缓存
             updateFileCache();
             // 4. 刷新脚本列表
             displayScriptList();
             // 5. 自动选择新创建的脚本
-            appState.currentScriptKey = scriptKey;
-            selectScript(scriptKey);
+            if (appState.currentScriptKey !== scriptKey) {
+                selectScript(scriptKey);
+            }
             updateStatus(`✅ 脚本已创建: ${scriptKey}`);
             showLoading(false);
         } catch (error) {
@@ -3822,7 +4094,7 @@
             // 3. 保存 JSON 文件到原始位置（紧凑格式）
             appState.currentData[appState.currentItemIndex] = currentItem;
             const jsonContent = JSON.stringify(appState.currentData, null, 2);
-            await electronAPI.writeFile(appState.currentFilePath, jsonContent);
+            await electronAPI.writeFile(appState.currentFilePath, jsonContent, "utf-8");
             // 保存成功后更新缓存
             updateFileCache();
             // 4. 重置当前脚本键
@@ -3870,6 +4142,8 @@
             return;
         }
         updateConfigPath('dataPath', dataPath, '数据目录');
+        invalidateProjectileResources(null, true);
+        ScriptCacheManager.clear();
     }
     function handleSetScriptPath(scriptPath) {
         if (!scriptPath) {
@@ -3900,6 +4174,9 @@
         if (!config.scriptSavePath) {
             missingPaths.push('脚本保存目录');
         }
+        if (!config.workspaceRoot) {
+            missingPaths.push('工作区目录');
+        }
         if (missingPaths.length === 0) {
             return;
         }
@@ -3927,7 +4204,17 @@
                 handleSetScriptPath(dir);
             }
         }
-        if (!config.dataPath || !config.scriptSavePath) {
+        if (!config.workspaceRoot) {
+            const dir = await promptDirectory(
+                '选择工作区目录',
+                '请选择代码工作区根目录（用于 tsconfig 与类型声明解析）。'
+            );
+            if (dir) {
+                appState.workspaceRoot = dir;
+                updateConfigPath('workspaceRoot', dir, '工作区目录');
+            }
+        }
+        if (!config.dataPath || !config.scriptSavePath || !config.workspaceRoot) {
             updateStatus('路径仍未配置完整，请使用菜单完成设置并保存配置。');
             return;
         }

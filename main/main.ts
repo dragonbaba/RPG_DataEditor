@@ -26,8 +26,6 @@ async function createWindow(): Promise<void> {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
-        maximizable: false,
-        resizable: false,
         useContentSize: true,
         webPreferences: {
             contextIsolation: true,
@@ -162,6 +160,20 @@ function createMenu() {
                     }
                 },
                 {
+                    label: '设置工作区',
+                    click: async () => {
+                        const win = BrowserWindow.getFocusedWindow() || mainWindow;
+                        if (!win) return;
+                        const result = await dialog.showOpenDialog(win, {
+                            properties: ['openDirectory'],
+                            title: '选择代码工作区'
+                        });
+                        if (!result.canceled && result.filePaths.length > 0) {
+                            win.webContents.send('set-workspace-path', result.filePaths[0]);
+                        }
+                    }
+                },
+                {
                     label: '保存设置',
                     click: () => {
                         if (mainWindow) {
@@ -292,6 +304,7 @@ function createMenu() {
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
 }
+
 // 初始化菜单
 app.on('ready', createMenu);
 
@@ -316,8 +329,18 @@ if (!isSingleInstance) {
     app.quit();
     process.exit(0);
 }
-app.on('second-instance', (_event, _path) => {
-    createWindow();
+app.on('second-instance', () => {
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+        }
+        if (!mainWindow.isVisible()) {
+            mainWindow.show();
+        }
+        mainWindow.focus();
+        return;
+    }
+    checkBrowserWindow();
 });
 ipcMain.handle('get-app-info', () => {
     return {
@@ -326,6 +349,7 @@ ipcMain.handle('get-app-info', () => {
         arch: process.arch
     };
 });
+
 
 ipcMain.handle('minimize-window', () => {
     if (mainWindow) {
@@ -428,6 +452,48 @@ ipcMain.handle('select-directory', async () => {
         properties: ['openDirectory']
     });
     return result.filePaths[0] || null;
+});
+
+// 选择工作区目录（可返回 null 表示用户取消）
+ipcMain.handle('pick-workspace', async () => {
+    const win = BrowserWindow.getFocusedWindow() || mainWindow;
+    if (!win) return null;
+    const result = await dialog.showOpenDialog(win, {
+        properties: ['openDirectory'],
+        title: '请选择代码工作区'
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    return result.filePaths[0];
+});
+
+// 列出工作区内的 .d.ts 文件（递归）
+ipcMain.handle('list-dts-files', async (_event, workspaceRoot: string) => {
+    const results: string[] = [];
+    const maxDepth = 6;
+    async function walk(dir: string, depth: number) {
+        if (depth > maxDepth) return;
+        let entries: fs.Dirent[];
+        try {
+            entries = await fs.promises.readdir(dir, { withFileTypes: true });
+        } catch (e) {
+            return;
+        }
+        for (const entry of entries) {
+            // 跳过 node_modules/.cache 之类的常见目录可按需扩展
+            const fullPath = path.join(dir, entry.name);
+            if (entry.isDirectory()) {
+                await walk(fullPath, depth + 1);
+                continue;
+            }
+            if (entry.isFile() && entry.name.toLowerCase().endsWith('.d.ts')) {
+                results.push(fullPath);
+            }
+        }
+    }
+    if (workspaceRoot && fs.existsSync(workspaceRoot)) {
+        await walk(workspaceRoot, 0);
+    }
+    return results;
 });
 
 ipcMain.handle('show-message-box', async (_event, options) => {
