@@ -460,12 +460,10 @@
             select.appendChild(frag);
         }
 
-        function updateMiniSelectOptions(list, options) {
-            if (!list || !Array.isArray(options)) return;
-            const selects = list.querySelectorAll('select');
+        function updateMiniSelectOptions(target, options) {
+            if (!target || !Array.isArray(options)) return;
             const pool = getOptionPool();
-            for (let i = 0; i < selects.length; i++) {
-                const select = selects[i];
+            const applyOptions = (select) => {
                 const current = select.value;
                 recycleOptions(select);
                 const frag = document.createDocumentFragment();
@@ -475,25 +473,33 @@
                     const optionObj = pool.get();
                     bindPoolItem(optionObj.element, optionObj);
                     optionObj.element.value = `${j}`;
-                    optionObj.element.textContent = o || o.name;
+                    optionObj.element.textContent = typeof o === 'string' ? o : (o.name || o.label || `${j}`);
                     frag.appendChild(optionObj.element);
                 }
                 select.appendChild(frag);
                 if (current) {
                     select.value = current;
                 }
+            };
+            if (target.tagName === 'SELECT') {
+                applyOptions(target);
+                return;
+            }
+            const selects = target.querySelectorAll('select');
+            for (let i = 0; i < selects.length; i++) {
+                applyOptions(selects[i]);
             }
         }
 
         function updateObjectiveActionSelects() {
             if (!dom.objectiveList) return;
-            const switchLists = dom.objectiveList.querySelectorAll('.obj-switch-list');
-            for (let i = 0; i < switchLists.length; i++) {
-                updateMiniSelectOptions(switchLists[i], state.system.switches);
+            const switchSelects = dom.objectiveList.querySelectorAll('.obj-switch-list .switch-select');
+            for (let i = 0; i < switchSelects.length; i++) {
+                updateMiniSelectOptions(switchSelects[i], state.system.switches);
             }
-            const variableLists = dom.objectiveList.querySelectorAll('.obj-variable-list');
-            for (let i = 0; i < variableLists.length; i++) {
-                updateMiniSelectOptions(variableLists[i], state.system.variables);
+            const variableSelects = dom.objectiveList.querySelectorAll('.obj-variable-list .variable-select');
+            for (let i = 0; i < variableSelects.length; i++) {
+                updateMiniSelectOptions(variableSelects[i], state.system.variables);
             }
         }
 
@@ -560,6 +566,20 @@
                 const valueSelect = node.querySelector('.switch-value');
                 select.dataset.questList = key || container.dataset.questList || '';
                 valueSelect.dataset.questList = key || container.dataset.questList || '';
+                recycleOptions(valueSelect);
+                const boolPool = getOptionPool();
+                const boolFrag = document.createDocumentFragment();
+                const trueOpt = boolPool.get();
+                bindPoolItem(trueOpt.element, trueOpt);
+                trueOpt.element.value = 'true';
+                trueOpt.element.textContent = '开启';
+                boolFrag.appendChild(trueOpt.element);
+                const falseOpt = boolPool.get();
+                bindPoolItem(falseOpt.element, falseOpt);
+                falseOpt.element.value = 'false';
+                falseOpt.element.textContent = '关闭';
+                boolFrag.appendChild(falseOpt.element);
+                valueSelect.appendChild(boolFrag);
                 recycleOptions(select);
                 const pool = getOptionPool();
                 const optionFrag = document.createDocumentFragment();
@@ -569,7 +589,7 @@
                     const optionObj = pool.get();
                     bindPoolItem(optionObj.element, optionObj);
                     optionObj.element.value = `${i}`;
-                    optionObj.element.textContent = s || `开关${i}`;
+                    optionObj.element.textContent = typeof s === 'string' ? s : (s.name || s.label || `开关${i}`);
                     optionFrag.appendChild(optionObj.element);
                 }
                 select.appendChild(optionFrag);
@@ -583,6 +603,7 @@
             container.appendChild(frag);
         }
 
+        const ops = ['+', '-', '*', '/', '='];
         function renderVariableList(container, data, key) {
             if (!container) return;
             if (key) {
@@ -598,8 +619,31 @@
                 node.dataset.index = idx;
                 const select = node.querySelector('.variable-select');
                 const valueInput = node.querySelector('.variable-value');
+                const opContainer = node.querySelector('.variable-op-container');
                 select.dataset.questList = key || container.dataset.questList || '';
                 valueInput.dataset.questList = key || container.dataset.questList || '';
+                const opSelectObj = getSelectPool().get();
+                const opSelect = opSelectObj.element;
+                bindPoolItem(opSelect, opSelectObj);
+                opSelect.className = 'theme-select variable-op';
+                opSelect.dataset.variableField = 'op';
+                recycleOptions(opSelect);
+                const opPool = getOptionPool();
+                const opFrag = document.createDocumentFragment();
+                for (let i = 0; i < ops.length; i++) {
+                    const optionObj = opPool.get();
+                    bindPoolItem(optionObj.element, optionObj);
+                    optionObj.element.value = ops[i];
+                    optionObj.element.textContent = ops[i];
+                    opFrag.appendChild(optionObj.element);
+                }
+                opSelect.appendChild(opFrag);
+                opSelect.value = row.op || '+';
+                if (opContainer) {
+                    opContainer.appendChild(opSelect);
+                } else {
+                    valueInput.parentNode.insertBefore(opSelect, valueInput);
+                }
                 recycleOptions(select);
                 const pool = getOptionPool();
                 const optionFrag = document.createDocumentFragment();
@@ -642,20 +686,35 @@
                 const valueSelect = node.querySelector('.switch-value');
                 select.dataset.objSwitchField = 'switchId';
                 valueSelect.dataset.objSwitchField = 'value';
+                recycleOptions(valueSelect);
+                const boolPool = getOptionPool();
+                const boolFrag = document.createDocumentFragment();
+                const trueOpt = boolPool.get();
+                bindPoolItem(trueOpt.element, trueOpt);
+                trueOpt.element.value = 'true';
+                trueOpt.element.textContent = '开启';
+                boolFrag.appendChild(trueOpt.element);
+                const falseOpt = boolPool.get();
+                bindPoolItem(falseOpt.element, falseOpt);
+                falseOpt.element.value = 'false';
+                falseOpt.element.textContent = '关闭';
+                boolFrag.appendChild(falseOpt.element);
+                valueSelect.appendChild(boolFrag);
                 recycleOptions(select);
                 const pool = getOptionPool();
                 const optionFrag = document.createDocumentFragment();
-                for (let i = 0; i < sys.length; i++) {
+                for (let i = 1; i < sys.length; i++) {
                     const s = sys[i];
                     if (!s) continue;
                     const optionObj = pool.get();
                     bindPoolItem(optionObj.element, optionObj);
-                    optionObj.element.value = `${s.id}`;
-                    optionObj.element.textContent = s.name || '';
+                    optionObj.element.value = `${i}`;
+                    optionObj.element.textContent = typeof s === 'string' ? s : (s.name || s.label || `开关${i}`);
                     optionFrag.appendChild(optionObj.element);
                 }
                 select.appendChild(optionFrag);
-                select.value = row.switchId != null ? row.switchId : (sys[0] ? sys[0].id : 1);
+                const fallbackId = sys.length > 1 ? 1 : 0;
+                select.value = row.switchId != null ? row.switchId : fallbackId;
                 valueSelect.value = `${row.value != null ? row.value : false}`;
                 frag.appendChild(node);
             }
@@ -679,22 +738,46 @@
                 node.dataset.objList = 'variables';
                 const select = node.querySelector('.variable-select');
                 const valueInput = node.querySelector('.variable-value');
+                const opContainer = node.querySelector('.variable-op-container');
                 select.dataset.objVariableField = 'variableId';
                 valueInput.dataset.objVariableField = 'value';
+                const opSelectObj = getSelectPool().get();
+                const opSelect = opSelectObj.element;
+                bindPoolItem(opSelect, opSelectObj);
+                opSelect.className = 'theme-select variable-op';
+                opSelect.dataset.objVariableField = 'op';
+                recycleOptions(opSelect);
+                const opPool = getOptionPool();
+                const opFrag = document.createDocumentFragment();
+                for (let i = 0; i < ops.length; i++) {
+                    const optionObj = opPool.get();
+                    bindPoolItem(optionObj.element, optionObj);
+                    optionObj.element.value = ops[i];
+                    optionObj.element.textContent = ops[i];
+                    opFrag.appendChild(optionObj.element);
+                }
+                opSelect.appendChild(opFrag);
+                opSelect.value = row.op || '+';
+                if (opContainer) {
+                    opContainer.appendChild(opSelect);
+                } else {
+                    valueInput.parentNode.insertBefore(opSelect, valueInput);
+                }
                 recycleOptions(select);
                 const pool = getOptionPool();
                 const optionFrag = document.createDocumentFragment();
-                for (let i = 0; i < sys.length; i++) {
+                for (let i = 1; i < sys.length; i++) {
                     const v = sys[i];
                     if (!v) continue;
                     const optionObj = pool.get();
                     bindPoolItem(optionObj.element, optionObj);
-                    optionObj.element.value = `${v.id}`;
-                    optionObj.element.textContent = v.name || '';
+                    optionObj.element.value = `${i}`;
+                    optionObj.element.textContent = typeof v === 'string' ? v : (v.name || v.label || `变量${i}`);
                     optionFrag.appendChild(optionObj.element);
                 }
                 select.appendChild(optionFrag);
-                select.value = row.variableId != null ? row.variableId : (sys[0] ? sys[0].id : 1);
+                const fallbackId = sys.length > 1 ? 1 : 0;
+                select.value = row.variableId != null ? row.variableId : fallbackId;
                 valueInput.value = row.value != null ? row.value : 0;
                 frag.appendChild(node);
             }
@@ -1025,7 +1108,7 @@
                 const optionObj = pool.get();
                 bindPoolItem(optionObj.element, optionObj);
                 optionObj.element.value = `${i}`;
-                optionObj.element.textContent = d || d.name;
+                optionObj.element.textContent = d.name;
                 frag.appendChild(optionObj.element);
             }
             sel.appendChild(frag);
@@ -1448,6 +1531,10 @@
             const row = obj.variables[idx];
             const field = target.dataset.objVariableField;
             if (!field) return;
+            if (field === 'op') {
+                row.op = target.value || '+';
+                return;
+            }
             const num = Number(target.value || 0);
             if (field === 'value') {
                 row.value = Number.isNaN(num) ? 0 : num;
@@ -1555,6 +1642,10 @@
             const row = list[idx];
             const field = target.dataset.variableField;
             if (!field) return;
+            if (field === 'op') {
+                row.op = target.value || '+';
+                return;
+            }
             if (field === 'value') {
                 row.value = Number(target.value || 0);
                 return;
@@ -1591,7 +1682,7 @@
                 obj.switches.push({ switchId: defaultId, value: true });
             } else if (listKey === 'variables') {
                 const defaultId = state.system.variables.length > 1 ? 1 : 0;
-                obj.variables.push({ variableId: defaultId, value: 0 });
+                obj.variables.push({ variableId: defaultId, value: 0, op: '+' });
             }
             const card = dom.objectiveList?.querySelector(`.quest-card[data-index="${objIdx}"]`);
             if (card) {
@@ -1669,7 +1760,7 @@
             const quest = getCurrentQuest();
             quest[target] = quest[target] || [];
             const defaultId = state.system.variables.length > 1 ? 1 : 0;
-            quest[target].push({ variableId: defaultId, value: 0 });
+            quest[target].push({ variableId: defaultId, value: 0, op: '+' });
             renderVariableList(target === 'startVariables' ? dom.startVariableList : dom.finishVariableList, quest[target]);
         }
 
@@ -6002,56 +6093,51 @@
     }
     async function saveCode() {
         try {
-            // ???saveCode ??????????????????
+            // 保存当前脚本
             if (!appState.currentScriptKey) {
-                showError('??????????');
+                showError('未选择脚本');
                 return;
             }
             const code = appState.codeEditor.getValue();
-            // ?????????????
             if (!code.trim()) {
-                showError('??????');
+                showError('代码为空');
                 return;
             }
             if (!appState.currentFile || !appState.currentItem) {
-                showError('?????????');
+                showError('未选择文件或项目');
                 return;
             }
-            showLoading(true, '?????...');
+            showLoading(true, '保存中...');
             const storedPath = appState.currentItem.scripts[appState.currentScriptKey];
             const filePath = resolveScriptFilePath(storedPath);
             if (!filePath) {
-                showError('??????');
+                showError('无法解析脚本路径');
                 showLoading(false);
                 return;
             }
-            //???????????????????????????????????
             const codeToSave = extractScriptCode(code).trim();
             const cachedContent = ScriptCacheManager.get(filePath);
             if (cachedContent !== null) {
                 const previousCode = extractScriptCode(cachedContent).trim();
                 if (previousCode === codeToSave) {
-                    updateStatus('?????????????');
+                    updateStatus('代码未变更，无需保存');
                     showLoading(false);
                     return;
                 }
             }
-            //?????????????? + ??
-            const newTimestamp = `// ????: ${DateFormatter.format(new Date())}`;
+            const newTimestamp = `// 保存时间: ${DateFormatter.format(new Date())}`;
             const newFileContent = `${newTimestamp}\n${codeToSave}`;
-            //????
             await electronAPI.writeFile(filePath, newFileContent);
-            // ???????????????????
             ScriptCacheManager.set(filePath, newFileContent);
             const newStoredPath = formatStoredScriptPath(filePath);
             if (newStoredPath) {
                 appState.currentItem.scripts[appState.currentScriptKey] = newStoredPath;
             }
             applyTimestampToActiveEditor(newTimestamp);
-            updateStatus(`? ?????: ${appState.currentScriptKey}`);
+            updateStatus(`已保存脚本: ${appState.currentScriptKey}`);
             showLoading(false);
         } catch (error) {
-            showError('??????: ' + error.message);
+            showError('保存失败: ' + error.message);
             showLoading(false);
         }
     }

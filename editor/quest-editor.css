@@ -225,6 +225,23 @@
     align-items: center;
 }
 
+/* 变量行有 4 列：变量选择、运算符、数值、删除 */
+.mini-row.variable-row {
+    grid-template-columns: minmax(140px, 1.2fr) 110px minmax(120px, 1fr) 32px;
+}
+
+.switch-select,
+.variable-select {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.variable-op {
+    min-width: 80px;
+}
+
 .icon-btn {
     width: 32px;
     height: 32px;
@@ -326,4 +343,3 @@
 .quest-card textarea {
     min-height: 60px;
 }
-

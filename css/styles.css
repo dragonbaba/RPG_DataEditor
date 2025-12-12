@@ -1028,6 +1028,33 @@ body {
     gap: 8px;
 }
 
+/* 变量行等分布局 */
+.variable-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.variable-row .variable-select,
+.variable-row .variable-op-container,
+.variable-row .variable-value {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.variable-row .variable-select {
+    flex: 1 1 40%;
+}
+.variable-row .variable-op-container {
+    flex: 0 0 20%;
+    display: flex;
+}
+.variable-row .variable-op-container .variable-op {
+    width: 100%;
+}
+.variable-row .variable-value {
+    flex: 1 1 40%;
+    min-width: 0;
+}
+
 .property-mode-subtitle {
     padding: 8px 12px;
     font-size: 12px;
