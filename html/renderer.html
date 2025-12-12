@@ -43,6 +43,12 @@
                 <div class="panel-header">
                     <h2>项目列表</h2>
                 </div>
+                <div class="left-panel-actions hidden" id="projectActions">
+                    <button id="itemNewBtn" class="action-btn small">新建</button>
+                    <button id="itemCopyBtn" class="action-btn small secondary">复制</button>
+                    <button id="itemDeleteBtn" class="action-btn small danger">删除</button>
+                    <button id="itemSaveBtn" class="action-btn small primary">保存任务</button>
+                </div>
                 <!-- ✅ 滚动容器包装 -->
                 <div class="list-scroll-wrapper">
                     <div id="itemList" class="item-list">
@@ -206,6 +212,8 @@
                                 <div class="projectile-template-row">
                                     <button id="projectileCreateTemplateBtn"
                                         class="action-btn secondary projectile-create-btn">新建弹道数据</button>
+                                    <button id="projectileDeleteTemplateBtn"
+                                        class="action-btn danger projectile-delete-btn">删除当前弹道</button>
                                 </div>
                                 <div class="projectile-template-grid">
                                     <label>
@@ -332,6 +340,7 @@
                     </div>
                 </div>
             </div>
+            <div id="questModePanel" class="quest-panel hidden"></div>
         </div>
         <!-- 底部状态栏 -->
         <div class="status-bar">

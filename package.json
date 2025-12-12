@@ -1,6 +1,6 @@
 {
   "name": "RPG-DATA-Editor",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "RM数据拓展编辑器 - 功能强大的JSON编辑工具，支持代码生成和自动链接管理",
   "main": "outputjs/main.js",
   "homepage": "./",

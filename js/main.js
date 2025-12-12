@@ -220,6 +220,12 @@
             this.projectileSegmentList = document.getElementById('projectileSegmentList');
             this.projectileAddSegmentBtn = document.getElementById('projectileAddSegmentBtn');
             this.projectileClearSegmentsBtn = document.getElementById('projectileClearSegmentsBtn');
+            this.questModePanel = document.getElementById('questModePanel');
+            this.itemNewBtn = document.getElementById('itemNewBtn');
+            this.itemCopyBtn = document.getElementById('itemCopyBtn');
+            this.itemDeleteBtn = document.getElementById('itemDeleteBtn');
+            this.itemSaveBtn = document.getElementById('itemSaveBtn');
+            this.projectActions = document.getElementById('projectActions');
         }
     };
 
@@ -331,6 +337,1523 @@
         actor: { x: 80, y: 180 },
         enemy: { x: 340, y: 160 }
     };
+
+    // ===================== Quest Editor Inline =====================
+    const NL_REGEXP = /\r?\n/;
+
+    const QuestEditor = (() => {
+        // 使用全局 DOM.questEditor 作为缓存容器，避免局部 dom 失效
+        const dom = DOM.questEditor || (DOM.questEditor = {});
+        const state = {
+            quests: [],
+            currentIndex: -1,
+            system: {
+                switches: [],
+                variables: [],
+                items: [],
+                weapons: [],
+                armors: [],
+                enemies: [],
+                actors: []
+            },
+            dataPath: '',
+            questFilePath: '',
+            questDataPaths: Object.create(null),
+        };
+        let eventsBound = false;
+
+        function fillQuestDifficulty() {
+            if (!dom.difficulty) return;
+            fillOptions(dom.difficulty, QUEST_DIFFICULTIES);
+            if (!dom.difficulty.value) {
+                dom.difficulty.value = 1;
+            }
+        }
+
+        function updateQuestDataStatus() {
+            const statusEl = document.getElementById('questDataStatus');
+            if (statusEl) {
+                const fileName = state.questFilePath?.split(TRANSFORM_REGEXP).pop() || '未选择';
+                const count = Math.max(state.quests.length, 0);
+                statusEl.textContent = `${fileName} · ${count} 条`;
+            }
+        }
+
+        function cacheDom(container) {
+            dom.container = container;
+            dom.title = container.querySelector('#questTitleInput');
+            dom.giver = container.querySelector('#questGiverInput');
+            dom.category = container.querySelector('#questCategoryInput');
+            dom.repeatable = container.querySelector('#questRepeatableInput');
+            dom.difficulty = container.querySelector('#questDifficultySelect');
+            dom.description = container.querySelector('#questDescriptionInput');
+            dom.startSwitchList = container.querySelector('#questStartSwitchList');
+            dom.finishSwitchList = container.querySelector('#questFinishSwitchList');
+            dom.startVariableList = container.querySelector('#questStartVariableList');
+            dom.finishVariableList = container.querySelector('#questFinishVariableList');
+            dom.requirementList = container.querySelector('#questRequirementList');
+            dom.objectiveList = container.querySelector('#questObjectiveList');
+            dom.rewardList = container.querySelector('#questRewardList');
+            dom.addReqBtn = container.querySelector('#questAddRequirementBtn');
+            dom.addObjBtn = container.querySelector('#questAddObjectiveBtn');
+            dom.addRewBtn = container.querySelector('#questAddRewardBtn');
+            dom.addStartSwitchBtn = container.querySelector('#questAddStartSwitchBtn');
+            dom.addFinishSwitchBtn = container.querySelector('#questAddFinishSwitchBtn');
+            dom.addStartVariableBtn = container.querySelector('#questAddStartVariableBtn');
+            dom.addFinishVariableBtn = container.querySelector('#questAddFinishVariableBtn');
+            dom.copyDialog = container.querySelector('#questCopyDialog');
+            dom.copyDialogList = container.querySelector('#questCopyDialogList');
+            dom.copyDialogClose = container.querySelector('#questCopyDialogClose');
+            dom.copyDialogCancel = container.querySelector('#questCopyDialogCancel');
+            dom.copyDialogConfirm = container.querySelector('#questCopyDialogConfirm');
+            dom.questSystemFileSelect = container.querySelector('#questSystemFileSelect');
+            dom.questSystemLoadBtn = container.querySelector('#questSystemLoadBtn');
+            dom.questSystemPickBtn = container.querySelector('#questSystemPickBtn');
+            dom.questItemFileSelect = container.querySelector('#questItemFileSelect');
+            dom.questItemLoadBtn = container.querySelector('#questItemLoadBtn');
+            dom.questItemPickBtn = container.querySelector('#questItemPickBtn');
+            dom.questWeaponFileSelect = container.querySelector('#questWeaponFileSelect');
+            dom.questWeaponLoadBtn = container.querySelector('#questWeaponLoadBtn');
+            dom.questWeaponPickBtn = container.querySelector('#questWeaponPickBtn');
+            dom.questArmorFileSelect = container.querySelector('#questArmorFileSelect');
+            dom.questArmorLoadBtn = container.querySelector('#questArmorLoadBtn');
+            dom.questArmorPickBtn = container.querySelector('#questArmorPickBtn');
+            dom.questEnemyFileSelect = container.querySelector('#questEnemyFileSelect');
+            dom.questEnemyLoadBtn = container.querySelector('#questEnemyLoadBtn');
+            dom.questEnemyPickBtn = container.querySelector('#questEnemyPickBtn');
+            dom.questActorFileSelect = container.querySelector('#questActorFileSelect');
+            dom.questActorLoadBtn = container.querySelector('#questActorLoadBtn');
+            dom.questActorPickBtn = container.querySelector('#questActorPickBtn');
+            dom.switchRow = container.querySelector('#quest-switch-row');
+            dom.variableRow = container.querySelector('#quest-variable-row');
+            dom.reqCard = container.querySelector('#quest-requirement-card');
+            dom.objCard = container.querySelector('#quest-objective-card');
+            dom.rewCard = container.querySelector('#quest-reward-card');
+            // 暴露关键节点到全局 DOM，便于全局刷新
+            DOM.questObjectiveList = dom.objectiveList;
+        }
+
+        function refreshSelectSources() {
+            updateMiniSelectOptions(dom.startSwitchList, state.system.switches);
+            updateMiniSelectOptions(dom.finishSwitchList, state.system.switches);
+            updateMiniSelectOptions(dom.startVariableList, state.system.variables);
+            updateMiniSelectOptions(dom.finishVariableList, state.system.variables);
+            updateObjectiveActionSelects();
+            const quest = getCurrentQuest();
+            if (quest) bindQuestToForm(quest);
+        }
+
+        function fillOptions(select, list) {
+            if (!select || !Array.isArray(list)) return;
+            recycleOptions(select);
+            const pool = getOptionPool();
+            const frag = document.createDocumentFragment();
+            for (let i = 0; i < list.length; i++) {
+                const opt = list[i];
+                if (!opt) continue;
+                const optionObj = pool.get();
+                bindPoolItem(optionObj.element, optionObj);
+                optionObj.element.value = `${opt.value}`;
+                optionObj.element.textContent = opt.label || '';
+                frag.appendChild(optionObj.element);
+            }
+            select.appendChild(frag);
+        }
+
+        function updateMiniSelectOptions(list, options) {
+            if (!list || !Array.isArray(options)) return;
+            const selects = list.querySelectorAll('select');
+            const pool = getOptionPool();
+            for (let i = 0; i < selects.length; i++) {
+                const select = selects[i];
+                const current = select.value;
+                recycleOptions(select);
+                const frag = document.createDocumentFragment();
+                for (let j = 1; j < options.length; j++) {
+                    const o = options[j];
+                    if (!o) continue;
+                    const optionObj = pool.get();
+                    bindPoolItem(optionObj.element, optionObj);
+                    optionObj.element.value = `${j}`;
+                    optionObj.element.textContent = o || o.name;
+                    frag.appendChild(optionObj.element);
+                }
+                select.appendChild(frag);
+                if (current) {
+                    select.value = current;
+                }
+            }
+        }
+
+        function updateObjectiveActionSelects() {
+            if (!dom.objectiveList) return;
+            const switchLists = dom.objectiveList.querySelectorAll('.obj-switch-list');
+            for (let i = 0; i < switchLists.length; i++) {
+                updateMiniSelectOptions(switchLists[i], state.system.switches);
+            }
+            const variableLists = dom.objectiveList.querySelectorAll('.obj-variable-list');
+            for (let i = 0; i < variableLists.length; i++) {
+                updateMiniSelectOptions(variableLists[i], state.system.variables);
+            }
+        }
+
+        function fillQuestSelectOptions(select, quests) {
+            if (!select) return;
+            recycleOptions(select);
+            const pool = getOptionPool();
+            const frag = document.createDocumentFragment();
+            const list = Array.isArray(quests) ? quests : [];
+            for (let i = 0; i < list.length; i++) {
+                const quest = list[i];
+                const optionObj = pool.get();
+                bindPoolItem(optionObj.element, optionObj);
+                optionObj.element.value = `${i}`;
+                optionObj.element.textContent = quest ? (quest.title || `任务${i}`) : `任务${i}`;
+                frag.appendChild(optionObj.element);
+            }
+            select.appendChild(frag);
+        }
+
+        function renderQuestList() {
+            // 不再使用独立左侧列表，改由通用 itemList 显示
+            syncQuestToCommonList();
+        }
+
+        function bindQuestToForm(quest) {
+            dom.title.value = quest.title || '';
+            dom.giver.value = quest.giver || '';
+            dom.category.checked = !!quest.category;
+            dom.repeatable.checked = !!quest.repeatable;
+            dom.difficulty.value = quest.difficulty || 1;
+            dom.description.value = Array.isArray(quest.description) ? quest.description.join('\n') : (quest.description || '');
+            renderSwitchList(dom.startSwitchList, quest.startSwitches, 'startSwitches');
+            renderSwitchList(dom.finishSwitchList, quest.switches, 'switches');
+            renderVariableList(dom.startVariableList, quest.startVariables, 'startVariables');
+            renderVariableList(dom.finishVariableList, quest.variables, 'variables');
+            renderRequirementList(quest.requirements || []);
+            renderObjectiveList(quest.objectives || []);
+            renderRewardList(quest.rewards || []);
+        }
+
+        function selectQuest(index) {
+            state.currentIndex = index;
+            const quest = state.quests[index];
+            if (!quest) return;
+            bindQuestToForm(quest);
+            markItemListActive(index + 1); // 通用列表首位是占位
+        }
+
+        function renderSwitchList(container, data, key) {
+            if (!container) return;
+            if (key) {
+                container.dataset.questList = key;
+            }
+            recyclePoolTree(container);
+            const tpl = dom.switchRow;
+            const frag = document.createDocumentFragment();
+            const switches = state.system.switches;
+            for (let idx = 0; idx < data.length; idx++) {
+                const row = data[idx];
+                const node = tpl.content.firstElementChild.cloneNode(true);
+                node.dataset.index = idx;
+                const select = node.querySelector('.switch-select');
+                const valueSelect = node.querySelector('.switch-value');
+                select.dataset.questList = key || container.dataset.questList || '';
+                valueSelect.dataset.questList = key || container.dataset.questList || '';
+                recycleOptions(select);
+                const pool = getOptionPool();
+                const optionFrag = document.createDocumentFragment();
+                for (let i = 1; i < switches.length; i++) {
+                    const s = switches[i];
+                    if (!s) continue;
+                    const optionObj = pool.get();
+                    bindPoolItem(optionObj.element, optionObj);
+                    optionObj.element.value = `${i}`;
+                    optionObj.element.textContent = s || `开关${i}`;
+                    optionFrag.appendChild(optionObj.element);
+                }
+                select.appendChild(optionFrag);
+                const fallbackId = switches.length > 1 ? 1 : 0;
+                select.value = row.switchId != null ? row.switchId : fallbackId;
+                valueSelect.value = `${row.value != null ? row.value : false}`;
+                select.dataset.switchField = 'switchId';
+                valueSelect.dataset.switchField = 'value';
+                frag.appendChild(node);
+            }
+            container.appendChild(frag);
+        }
+
+        function renderVariableList(container, data, key) {
+            if (!container) return;
+            if (key) {
+                container.dataset.questList = key;
+            }
+            recyclePoolTree(container);
+            const tpl = dom.variableRow;
+            const frag = document.createDocumentFragment();
+            const variables = state.system.variables;
+            for (let idx = 0; idx < data.length; idx++) {
+                const row = data[idx];
+                const node = tpl.content.firstElementChild.cloneNode(true);
+                node.dataset.index = idx;
+                const select = node.querySelector('.variable-select');
+                const valueInput = node.querySelector('.variable-value');
+                select.dataset.questList = key || container.dataset.questList || '';
+                valueInput.dataset.questList = key || container.dataset.questList || '';
+                recycleOptions(select);
+                const pool = getOptionPool();
+                const optionFrag = document.createDocumentFragment();
+                for (let i = 1; i < variables.length; i++) {
+                    const v = variables[i];
+                    if (!v) continue;
+                    const optionObj = pool.get();
+                    bindPoolItem(optionObj.element, optionObj);
+                    optionObj.element.value = `${i}`;
+                    optionObj.element.textContent = v || `变量${i}`;
+                    optionFrag.appendChild(optionObj.element);
+                }
+                select.appendChild(optionFrag);
+                const fallbackId = variables.length > 1 ? 1 : 0;
+                select.value = row.variableId != null ? row.variableId : fallbackId;
+                valueInput.value = row.value != null ? row.value : 0;
+                select.dataset.variableField = 'variableId';
+                valueInput.dataset.variableField = 'value';
+                frag.appendChild(node);
+            }
+            container.appendChild(frag);
+        }
+
+        function renderObjectiveSwitchList(container, obj, objIdx) {
+            if (!container || !obj) return;
+            container.dataset.objList = 'switches';
+            container.dataset.objIndex = objIdx;
+            recyclePoolTree(container);
+            const tpl = dom.switchRow;
+            const frag = document.createDocumentFragment();
+            const sys = state.system.switches;
+            const data = Array.isArray(obj.switches) ? obj.switches : [];
+            for (let idx = 0; idx < data.length; idx++) {
+                const row = data[idx];
+                const node = tpl.content.firstElementChild.cloneNode(true);
+                node.dataset.index = idx;
+                node.dataset.objIndex = objIdx;
+                node.dataset.objList = 'switches';
+                const select = node.querySelector('.switch-select');
+                const valueSelect = node.querySelector('.switch-value');
+                select.dataset.objSwitchField = 'switchId';
+                valueSelect.dataset.objSwitchField = 'value';
+                recycleOptions(select);
+                const pool = getOptionPool();
+                const optionFrag = document.createDocumentFragment();
+                for (let i = 0; i < sys.length; i++) {
+                    const s = sys[i];
+                    if (!s) continue;
+                    const optionObj = pool.get();
+                    bindPoolItem(optionObj.element, optionObj);
+                    optionObj.element.value = `${s.id}`;
+                    optionObj.element.textContent = s.name || '';
+                    optionFrag.appendChild(optionObj.element);
+                }
+                select.appendChild(optionFrag);
+                select.value = row.switchId != null ? row.switchId : (sys[0] ? sys[0].id : 1);
+                valueSelect.value = `${row.value != null ? row.value : false}`;
+                frag.appendChild(node);
+            }
+            container.appendChild(frag);
+        }
+
+        function renderObjectiveVariableList(container, obj, objIdx) {
+            if (!container || !obj) return;
+            container.dataset.objList = 'variables';
+            container.dataset.objIndex = objIdx;
+            recyclePoolTree(container);
+            const tpl = dom.variableRow;
+            const frag = document.createDocumentFragment();
+            const sys = state.system.variables;
+            const data = Array.isArray(obj.variables) ? obj.variables : [];
+            for (let idx = 0; idx < data.length; idx++) {
+                const row = data[idx];
+                const node = tpl.content.firstElementChild.cloneNode(true);
+                node.dataset.index = idx;
+                node.dataset.objIndex = objIdx;
+                node.dataset.objList = 'variables';
+                const select = node.querySelector('.variable-select');
+                const valueInput = node.querySelector('.variable-value');
+                select.dataset.objVariableField = 'variableId';
+                valueInput.dataset.objVariableField = 'value';
+                recycleOptions(select);
+                const pool = getOptionPool();
+                const optionFrag = document.createDocumentFragment();
+                for (let i = 0; i < sys.length; i++) {
+                    const v = sys[i];
+                    if (!v) continue;
+                    const optionObj = pool.get();
+                    bindPoolItem(optionObj.element, optionObj);
+                    optionObj.element.value = `${v.id}`;
+                    optionObj.element.textContent = v.name || '';
+                    optionFrag.appendChild(optionObj.element);
+                }
+                select.appendChild(optionFrag);
+                select.value = row.variableId != null ? row.variableId : (sys[0] ? sys[0].id : 1);
+                valueInput.value = row.value != null ? row.value : 0;
+                frag.appendChild(node);
+            }
+            container.appendChild(frag);
+        }
+
+        function renderObjectiveActions(card, obj, objIdx) {
+            if (!card) return;
+            renderObjectiveSwitchList(card.querySelector('.obj-switch-list'), obj, objIdx);
+            renderObjectiveVariableList(card.querySelector('.obj-variable-list'), obj, objIdx);
+        }
+
+        function refreshObjectiveActionsView() {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.objectives) return;
+            renderObjectiveList(quest.objectives);
+        }
+
+        function renderRequirementList(list) {
+            recyclePoolTree(dom.requirementList);
+            const frag = document.createDocumentFragment();
+            for (let idx = 0; idx < list.length; idx++) {
+                const req = list[idx];
+                const card = dom.reqCard.content.firstElementChild.cloneNode(true);
+                card.dataset.index = idx;
+                const typeSelect = card.querySelector('.req-type');
+                fillOptions(typeSelect, QUEST_REQUIREMENT_TYPES);
+                typeSelect.value = req.type ?? 0;
+                typeSelect.dataset.index = idx;
+                typeSelect.dataset.reqField = 'type';
+                buildRequirementFields(card.querySelector('.req-grid'), req);
+                frag.appendChild(card);
+            }
+            dom.requirementList.appendChild(frag);
+        }
+
+        function renderObjectiveList(list) {
+            recyclePoolTree(dom.objectiveList);
+            const frag = document.createDocumentFragment();
+            for (let idx = 0; idx < list.length; idx++) {
+                const obj = list[idx];
+                if (!Array.isArray(obj.switches)) obj.switches = [];
+                if (!Array.isArray(obj.variables)) obj.variables = [];
+                const card = dom.objCard.content.firstElementChild.cloneNode(true);
+                card.dataset.index = idx;
+                const typeSelect = card.querySelector('.obj-type');
+                const calcCheckbox = card.querySelector('.obj-calc-type');
+                fillOptions(typeSelect, QUEST_OBJECTIVE_TYPES);
+                typeSelect.value = obj.type ?? 1;
+                calcCheckbox.checked = obj.calculateType !== false;
+                typeSelect.dataset.index = idx;
+                typeSelect.dataset.objField = 'type';
+                calcCheckbox.dataset.index = idx;
+                calcCheckbox.dataset.objField = 'calculateType';
+                buildObjectiveFields(card.querySelector('.obj-grid'), obj);
+                renderObjectiveActions(card, obj, idx);
+                frag.appendChild(card);
+            }
+            dom.objectiveList.appendChild(frag);
+            updateObjectiveActionSelects();
+        }
+
+        function renderRewardList(list) {
+            recyclePoolTree(dom.rewardList);
+            const frag = document.createDocumentFragment();
+            for (let idx = 0; idx < list.length; idx++) {
+                const rew = list[idx];
+                const card = dom.rewCard.content.firstElementChild.cloneNode(true);
+                card.dataset.index = idx;
+                const typeSelect = card.querySelector('.rew-type');
+                fillOptions(typeSelect, QUEST_REWARD_TYPES);
+                typeSelect.value = rew.type ?? 1;
+                typeSelect.dataset.index = idx;
+                typeSelect.dataset.rewField = 'type';
+                buildRewardFields(card.querySelector('.rew-grid'), rew);
+                frag.appendChild(card);
+            }
+            dom.rewardList.appendChild(frag);
+        }
+
+        function bindListDelegates() {
+            dom.requirementList && dom.requirementList.addEventListener('click', handleRequirementClick);
+            dom.requirementList && dom.requirementList.addEventListener('change', handleRequirementChange);
+            dom.objectiveList && dom.objectiveList.addEventListener('click', handleObjectiveClick);
+            dom.objectiveList && dom.objectiveList.addEventListener('change', handleObjectiveChange);
+            dom.rewardList && dom.rewardList.addEventListener('click', handleRewardClick);
+            dom.rewardList && dom.rewardList.addEventListener('change', handleRewardChange);
+        }
+
+        function handleRequirementClick(e) {
+            const remove = e.target.closest('.remove-card');
+            if (remove) {
+                const idx = Number(remove.closest('.quest-card')?.dataset.index);
+                if (Number.isInteger(idx) && idx >= 0 && state.quests[state.currentIndex]?.requirements) {
+                    state.quests[state.currentIndex].requirements.splice(idx, 1);
+                    renderRequirementList(state.quests[state.currentIndex].requirements);
+                }
+            }
+        }
+
+        function handleRequirementChange(e) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.requirements) return;
+            const typeSelect = e.target.closest('.req-type');
+            if (typeSelect) {
+                const idx = Number(typeSelect.dataset.index);
+                if (!Number.isInteger(idx) || idx < 0 || idx >= quest.requirements.length) return;
+                const req = quest.requirements[idx];
+                req.type = Number(typeSelect.value);
+                const card = typeSelect.closest('.quest-card');
+                if (card) {
+                    buildRequirementFields(card.querySelector('.req-grid'), req);
+                }
+            }
+        }
+
+        function handleObjectiveClick(e) {
+            const remove = e.target.closest('.remove-card');
+            if (remove) {
+                const idx = Number(remove.closest('.quest-card')?.dataset.index);
+                if (Number.isInteger(idx) && idx >= 0 && state.quests[state.currentIndex]?.objectives) {
+                    state.quests[state.currentIndex].objectives.splice(idx, 1);
+                    renderObjectiveList(state.quests[state.currentIndex].objectives);
+                }
+                return;
+            }
+            const addSwitch = e.target.closest('.obj-switch-add');
+            if (addSwitch) {
+                const idx = Number(addSwitch.closest('.quest-card')?.dataset.index);
+                addObjectiveAction(idx, 'switches');
+                return;
+            }
+            const addVar = e.target.closest('.obj-variable-add');
+            if (addVar) {
+                const idx = Number(addVar.closest('.quest-card')?.dataset.index);
+                addObjectiveAction(idx, 'variables');
+            }
+        }
+
+        function handleObjectiveChange(e) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.objectives) return;
+            const typeSelect = e.target.closest('.obj-type');
+            if (typeSelect) {
+                const idx = Number(typeSelect.dataset.index);
+                if (!Number.isInteger(idx) || idx < 0 || idx >= quest.objectives.length) return;
+                const obj = quest.objectives[idx];
+                obj.type = Number(typeSelect.value);
+                const card = typeSelect.closest('.quest-card');
+                if (card) {
+                    buildObjectiveFields(card.querySelector('.obj-grid'), obj);
+                }
+            }
+            const calc = e.target.closest('.obj-calc-type');
+            if (calc) {
+                const idx = Number(calc.dataset.index);
+                if (!Number.isInteger(idx) || idx < 0 || idx >= quest.objectives.length) return;
+                quest.objectives[idx].calculateType = calc.checked;
+            }
+        }
+
+        function handleRewardClick(e) {
+            const remove = e.target.closest('.remove-card');
+            if (remove) {
+                const idx = Number(remove.closest('.quest-card')?.dataset.index);
+                if (Number.isInteger(idx) && idx >= 0 && state.quests[state.currentIndex]?.rewards) {
+                    state.quests[state.currentIndex].rewards.splice(idx, 1);
+                    renderRewardList(state.quests[state.currentIndex].rewards);
+                }
+            }
+        }
+
+        function handleRewardChange(e) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.rewards) return;
+            const typeSelect = e.target.closest('.rew-type');
+            if (typeSelect) {
+                const idx = Number(typeSelect.dataset.index);
+                if (!Number.isInteger(idx) || idx < 0 || idx >= quest.rewards.length) return;
+                const rew = quest.rewards[idx];
+                rew.type = Number(typeSelect.value);
+                const card = typeSelect.closest('.quest-card');
+                if (card) {
+                    buildRewardFields(card.querySelector('.rew-grid'), rew);
+                }
+            }
+        }
+
+        function buildRequirementFields(grid, req) {
+            recyclePoolTree(grid);
+            const type = req.type ?? 0;
+            const opSelect = createSelect(QUEST_OPERATORS, req.operator || '>=');
+            opSelect.dataset.reqField = 'operator';
+            if (type === 1) {
+                appendQuestField(grid, '目标等级', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
+                appendQuestField(grid, '角色ID', createNumberInput(req.actorId ?? 1, 'actorId', 'req'), 'reqField', 'actorId');
+                appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
+            } else if (type === 2) {
+                const selectObj = getSelectPool().get();
+                const questSelect = selectObj.element;
+                bindPoolItem(questSelect, selectObj);
+                questSelect.className = 'theme-select';
+                recycleOptions(questSelect);
+                fillQuestSelectOptions(questSelect, state.quests);
+                questSelect.value = req.questId ?? 0;
+                appendQuestField(grid, '前置任务', questSelect, 'reqField', 'questId');
+            } else if (type === 3) {
+                appendQuestField(grid, '物品', createDataSelect(state.system.items, req.itemId ?? 1, 'itemId', 'req'), 'reqField', 'itemId');
+                appendQuestField(grid, '数量/值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
+                appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
+            } else if (type === 4) {
+                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, req.weaponId ?? 1, 'weaponId', 'req'), 'reqField', 'weaponId');
+                appendQuestField(grid, '数量/值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
+                appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
+            } else if (type === 5) {
+                appendQuestField(grid, '防具', createDataSelect(state.system.armors, req.armorId ?? 1, 'armorId', 'req'), 'reqField', 'armorId');
+                appendQuestField(grid, '数量/值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
+                appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
+            } else if (type === 6) {
+                appendQuestField(grid, '开关', createDataSelect(state.system.switches, req.switchId ?? 1, 'switchId', 'req'), 'reqField', 'switchId');
+                const boolSelect = createSelect([{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }], `${req.targetValue ?? 'true'}`);
+                appendQuestField(grid, '目标值', boolSelect, 'reqField', 'targetValue');
+            } else if (type === 7) {
+                appendQuestField(grid, '变量', createDataSelect(state.system.variables, req.variableId ?? 1, 'variableId', 'req'), 'reqField', 'variableId');
+                appendQuestField(grid, '目标值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
+                appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
+            } else if (type === 8) {
+                appendQuestField(grid, '金币', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
+                appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
+            }
+            appendQuestField(grid, '描述', createTextInput(req.description || '', 'description', 'req'), 'reqField', 'description');
+        }
+
+        function buildObjectiveFields(grid, obj) {
+            recyclePoolTree(grid);
+            if (!Array.isArray(obj.switches)) obj.switches = [];
+            if (!Array.isArray(obj.variables)) obj.variables = [];
+            const type = obj.type ?? 1;
+            const opSelect = createSelect(QUEST_OPERATORS, obj.operator || '>=');
+            opSelect.dataset.objField = 'operator';
+            if (type === 1) {
+                appendQuestField(grid, '敌人', createDataSelect(state.system.enemies, obj.enemyId ?? 1, 'enemyId', 'obj'), 'objField', 'enemyId');
+            } else if (type === 2) {
+                appendQuestField(grid, '物品', createDataSelect(state.system.items, obj.itemId ?? 1, 'itemId', 'obj'), 'objField', 'itemId');
+            } else if (type === 3) {
+                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, obj.weaponId ?? 1, 'weaponId', 'obj'), 'objField', 'weaponId');
+            } else if (type === 4) {
+                appendQuestField(grid, '防具', createDataSelect(state.system.armors, obj.armorId ?? 1, 'armorId', 'obj'), 'objField', 'armorId');
+            } else if (type === 5) {
+                appendQuestField(grid, '开关', createDataSelect(state.system.switches, obj.switchId ?? 1, 'switchId', 'obj'), 'objField', 'switchId');
+                const boolSelect = createSelect([{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }], `${obj.targetValue ?? 'true'}`);
+                boolSelect.dataset.objField = 'targetValue';
+                appendQuestField(grid, '目标值', boolSelect, 'objField', 'targetValue');
+            } else if (type === 6) {
+                appendQuestField(grid, '变量', createDataSelect(state.system.variables, obj.variableId ?? 1, 'variableId', 'obj'), 'objField', 'variableId');
+            }
+            appendQuestField(grid, '目标值', createNumberInput(obj.targetValue ?? 1, 'targetValue', 'obj'), 'objField', 'targetValue');
+            appendQuestField(grid, '比较符', opSelect, 'objField', 'operator');
+            appendQuestField(grid, '描述', createTextInput(obj.description || '', 'description', 'obj'), 'objField', 'description');
+        }
+
+        function buildRewardFields(grid, rew) {
+            recyclePoolTree(grid);
+            const type = rew.type ?? 1;
+            if (type === 1) {
+                appendQuestField(grid, '物品', createDataSelect(state.system.items, rew.itemId ?? 1, 'itemId', 'rew'), 'rewField', 'itemId');
+            } else if (type === 2) {
+                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, rew.weaponId ?? 1, 'weaponId', 'rew'), 'rewField', 'weaponId');
+            } else if (type === 3) {
+                appendQuestField(grid, '防具', createDataSelect(state.system.armors, rew.armorId ?? 1, 'armorId', 'rew'), 'rewField', 'armorId');
+            } else if (type === 6) {
+                appendQuestField(grid, '开关', createDataSelect(state.system.switches, rew.switchId ?? 1, 'switchId', 'rew'), 'rewField', 'switchId');
+                const boolSelect = createSelect([{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }], `${rew.targetValue ?? 'true'}`);
+                boolSelect.dataset.rewField = 'targetValue';
+                appendQuestField(grid, '值', boolSelect, 'rewField', 'targetValue');
+            } else if (type === 7) {
+                appendQuestField(grid, '变量', createDataSelect(state.system.variables, rew.variableId ?? 1, 'variableId', 'rew'), 'rewField', 'variableId');
+            }
+            if (type !== 6 || type === 7) {
+                appendQuestField(grid, '数量/值', createNumberInput(rew.targetValue ?? 1, 'targetValue', 'rew'), 'rewField', 'targetValue');
+            }
+            appendQuestField(grid, '描述', createTextInput(rew.description || '', 'description', 'rew'), 'rewField', 'description');
+        }
+
+        function createSelect(options, value) {
+            const selectObj = getSelectPool().get();
+            const sel = selectObj.element;
+            bindPoolItem(sel, selectObj);
+            sel.className = 'theme-select';
+            recycleOptions(sel);
+            const pool = getOptionPool();
+            const frag = document.createDocumentFragment();
+            for (let i = 0; i < options.length; i++) {
+                const opt = options[i];
+                if (!opt) continue;
+                const optionObj = pool.get();
+                bindPoolItem(optionObj.element, optionObj);
+                if (typeof opt === 'string') {
+                    optionObj.element.value = opt;
+                    optionObj.element.textContent = opt;
+                } else {
+                    optionObj.element.value = `${opt.value}`;
+                    optionObj.element.textContent = opt.label || '';
+                }
+                frag.appendChild(optionObj.element);
+            }
+            sel.appendChild(frag);
+            sel.value = value;
+            return sel;
+        }
+
+        function createDataSelect(data, value, field, scope) {
+            const selectObj = getSelectPool().get();
+            const sel = selectObj.element;
+            bindPoolItem(sel, selectObj);
+            sel.className = 'theme-select';
+            if (field) {
+                sel.dataset[`${scope}Field`] = field;
+            } else {
+                delete sel.dataset[`${scope}Field`];
+            }
+            recycleOptions(sel);
+            const pool = getOptionPool();
+            const frag = document.createDocumentFragment();
+            for (let i = 1; i < data.length; i++) {
+                const d = data[i];
+                if (!d) continue;
+                const optionObj = pool.get();
+                bindPoolItem(optionObj.element, optionObj);
+                optionObj.element.value = `${i}`;
+                optionObj.element.textContent = d || d.name;
+                frag.appendChild(optionObj.element);
+            }
+            sel.appendChild(frag);
+            sel.value = value;
+            return sel;
+        }
+
+        function createNumberInput(value, field, scope) {
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'theme-input';
+            if (field) {
+                input.dataset[`${scope}Field`] = field;
+            }
+            input.value = value ?? 0;
+            return input;
+        }
+
+        function createTextInput(value, field, scope) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'theme-input';
+            if (field) {
+                input.dataset[`${scope}Field`] = field;
+            }
+            input.value = value || '';
+            return input;
+        }
+
+        function appendQuestField(grid, label, node, datasetKey, fieldName) {
+            const wrap = document.createElement('label');
+            wrap.textContent = label;
+            if (datasetKey && fieldName) {
+                node.dataset[datasetKey] = fieldName;
+            }
+            wrap.appendChild(node);
+            grid.appendChild(wrap);
+        }
+
+        function initQuestDataSelect() {
+            const configs = QUEST_DATA_CONFIG;
+            for (const key in configs) {
+                const cfg = configs[key];
+                const select = dom[cfg.selectRef.replace('#', '')] || dom[cfg.selectRef];
+                if (!select) continue;
+                recycleOptions(select);
+                const pool = getOptionPool();
+                const frag = document.createDocumentFragment();
+                const opt = pool.get();
+                bindPoolItem(opt.element, opt);
+                opt.element.value = cfg.defaultFile;
+                opt.element.textContent = cfg.defaultFile;
+                frag.appendChild(opt.element);
+                if (state.questDataPaths?.[key]) {
+                    const custom = pool.get();
+                    bindPoolItem(custom.element, custom);
+                    custom.element.value = state.questDataPaths[key];
+                    custom.element.textContent = state.questDataPaths[key].split(TRANSFORM_REGEXP).pop() || state.questDataPaths[key];
+                    frag.appendChild(custom.element);
+                    select.value = state.questDataPaths[key];
+                } else {
+                    select.value = cfg.defaultFile;
+                }
+                select.appendChild(frag);
+            }
+            updateQuestDataStatus();
+        }
+
+        function resolveQuestFilePath(value) {
+            if (!value) return null;
+            const trimmed = value.trim();
+            if (!trimmed) return null;
+            const normalized = isAbsolutePath(trimmed)
+                ? normalizeSlashes(trimmed.replace(TRANSFORM_REGEXP, ''))
+                : null;
+            if (normalized) return normalized;
+            const dir = state.dataPath || getDataDirectory();
+            if (!dir) return null;
+            return normalizeSlashes(`${dir}/${trimmed}`.replace(TRANSFORM_REGEXP, ''));
+        }
+
+        async function loadDataResource(type, fileValue, defaultName = null) {
+            const cfg = QUEST_DATA_CONFIG[type];
+            if (!cfg) return;
+            const filePath = resolveQuestFilePath(fileValue || cfg.defaultFile);
+            if (!filePath) {
+                return;
+            }
+            try {
+                const raw = await electronAPI.readFile(filePath, 'utf-8');
+                const parsed = JSON.parse(raw);
+                const statusEl = document.getElementById(cfg.statusRef);
+                const fileName = defaultName || fileValue || filePath.split(TRANSFORM_REGEXP).pop() || filePath;
+                FileCacheManager.cache(filePath, fileName, parsed);
+                if (statusEl) statusEl.textContent = `${fileName} · ${(parsed?.length ?? 0)} 条`;
+                state.questDataPaths[type] = filePath;
+                registerProjectileDataFile(fileName, filePath);
+                applyLoadedQuestData(type, parsed);
+                refreshSelectSources();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function applyLoadedQuestData(type, data) {
+            const sys = state.system;
+            if (!data) return;
+            if (type === 'system') {
+                sys.switches = data.switches;
+                sys.variables = data.variables;
+                refreshObjectiveActionsView();
+                return;
+            } else if (type === 'item') {
+                sys.items = data;
+                return;
+            } else if (type === 'weapon') {
+                sys.weapons = data;
+                return;
+            } else if (type === 'armor') {
+                sys.armors = data;
+                return;
+            } else if (type === 'enemy') {
+                sys.enemies = data;
+                return;
+            } else if (type === 'actor') {
+                sys.actors = data;
+                return;
+            }
+        }
+
+        function bindDataLoaders() {
+            for (const [type, cfg] of Object.entries(QUEST_DATA_CONFIG)) {
+                const loadBtn = dom[cfg.loadRef.replace('#', '')] || dom[cfg.loadRef];
+                const pickBtn = dom[cfg.pickRef.replace('#', '')] || dom[cfg.pickRef];
+                const select = dom[cfg.selectRef.replace('#', '')] || dom[cfg.selectRef];
+                if (loadBtn) {
+                    loadBtn.dataset.questResource = type;
+                    loadBtn.dataset.questAction = 'load';
+                }
+                if (pickBtn) {
+                    pickBtn.dataset.questResource = type;
+                    pickBtn.dataset.questAction = 'pick';
+                }
+                if (select) {
+                    select.dataset.questResource = type;
+                }
+                const statusEl = document.getElementById(cfg.statusRef);
+                if (statusEl) statusEl.textContent = '尚未加载';
+            }
+        }
+
+        function getQuestDataSelect(type) {
+            const cfg = QUEST_DATA_CONFIG[type];
+            if (!cfg) return null;
+            return dom[cfg.selectRef.replace('#', '')] || dom[cfg.selectRef] || null;
+        }
+
+        function handleQuestResourceAction(type, action) {
+            const cfg = QUEST_DATA_CONFIG[type];
+            if (!cfg) return;
+            const select = getQuestDataSelect(type);
+            if (action === 'load') {
+                const value = select ? select.value : cfg.defaultFile;
+                loadDataResource(type, value || cfg.defaultFile);
+            } else if (action === 'pick') {
+                handlePickDataFile(type, cfg, select);
+            }
+        }
+
+        async function handlePickDataFile(type, cfg, select) {
+            try {
+                const result = await electronAPI.showOpenDialog({
+                    properties: ['openFile'],
+                    filters: [{ name: 'JSON 文件', extensions: ['json'] }],
+                    title: `选择${cfg.label}`
+                });
+                if (result?.canceled || !result.filePaths.length) return;
+                const filePath = result.filePaths[0];
+                if (select) {
+                    select.value = filePath;
+                }
+                await loadDataResource(type, filePath, cfg.defaultFile);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function bindEvents() {
+            if (eventsBound) return;
+            eventsBound = true;
+            if (dom.container) {
+                dom.container.addEventListener('click', handleQuestPanelClick);
+                dom.container.addEventListener('change', handleQuestPanelChange);
+                dom.container.addEventListener('input', handleQuestPanelInput);
+            }
+        }
+
+        function handleQuestPanelClick(e) {
+            const target = e.target;
+            if (!target) return;
+            if (target.closest('#questAddRequirementBtn')) {
+                addRequirement();
+                return;
+            }
+            if (target.closest('#questAddObjectiveBtn')) {
+                addObjective();
+                return;
+            }
+            if (target.closest('#questAddRewardBtn')) {
+                addReward();
+                return;
+            }
+            if (target.closest('#questAddStartSwitchBtn')) {
+                onAddStartSwitch();
+                return;
+            }
+            if (target.closest('#questAddFinishSwitchBtn')) {
+                onAddFinishSwitch();
+                return;
+            }
+            if (target.closest('#questAddStartVariableBtn')) {
+                onAddStartVariable();
+                return;
+            }
+            if (target.closest('#questAddFinishVariableBtn')) {
+                onAddFinishVariable();
+                return;
+            }
+            const resourceBtn = target.closest('[data-quest-resource][data-quest-action]');
+            if (resourceBtn) {
+                const type = resourceBtn.dataset.questResource;
+                const action = resourceBtn.dataset.questAction;
+                handleQuestResourceAction(type, action);
+                return;
+            }
+            if (target.closest('#questRequirementList')) {
+                handleRequirementClick(e);
+                return;
+            }
+            if (target.closest('#questObjectiveList')) {
+                handleObjectiveClick(e);
+                return;
+            }
+            if (target.closest('#questRewardList')) {
+                handleRewardClick(e);
+                return;
+            }
+            const remove = target.closest('.mini-row-remove');
+            if (remove) {
+                removeMiniRow(remove);
+            }
+        }
+
+        function handleQuestPanelChange(e) {
+            const target = e.target;
+            if (!target) return;
+            if (target.closest('#questRequirementList') && target.dataset.reqField) {
+                applyRequirementField(target);
+                return;
+            }
+            if (target.closest('#questObjectiveList') && (target.dataset.objField || target.classList.contains('obj-type'))) {
+                applyObjectiveField(target);
+                return;
+            }
+            if (target.closest('#questObjectiveList') && target.dataset.objSwitchField) {
+                applyObjectiveSwitchField(target);
+                return;
+            }
+            if (target.closest('#questObjectiveList') && target.dataset.objVariableField) {
+                applyObjectiveVariableField(target);
+                return;
+            }
+            if (target.closest('#questRewardList') && (target.dataset.rewField || target.classList.contains('rew-type'))) {
+                applyRewardField(target);
+                return;
+            }
+            if (target.classList.contains('switch-select') || target.classList.contains('switch-value')) {
+                applySwitchField(target);
+                return;
+            }
+            if (target.classList.contains('variable-select') || target.classList.contains('variable-value')) {
+                applyVariableField(target);
+                return;
+            }
+            if (target.dataset.questResource && target.dataset.questAction === 'load') {
+                handleQuestResourceAction(target.dataset.questResource, 'load');
+                return;
+            }
+            if (target === dom.category || target === dom.repeatable || target === dom.difficulty) {
+                collectFormToQuest();
+            }
+        }
+
+        function handleQuestPanelInput(e) {
+            const target = e.target;
+            if (!target) return;
+            if (target === dom.title || target === dom.giver || target === dom.description) {
+                collectFormToQuest();
+                return;
+            }
+            if (target.closest('#questRequirementList') && target.dataset.reqField) {
+                applyRequirementField(target);
+                return;
+            }
+            if (target.closest('#questObjectiveList') && target.dataset.objField) {
+                applyObjectiveField(target);
+                return;
+            }
+            if (target.closest('#questObjectiveList') && target.dataset.objVariableField) {
+                applyObjectiveVariableField(target);
+                return;
+            }
+            if (target.closest('#questRewardList') && target.dataset.rewField) {
+                applyRewardField(target);
+                return;
+            }
+            if (target.classList.contains('variable-value')) {
+                applyVariableField(target);
+            }
+        }
+
+        function parseBoolValue(value) {
+            return value === true || value === 'true' || value === '1';
+        }
+
+        function applyRequirementField(target) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.requirements) return;
+            const cardIdx = Number(target.closest('.quest-card')?.dataset.index);
+            if (!Number.isInteger(cardIdx) || cardIdx < 0 || cardIdx >= quest.requirements.length) return;
+            const req = quest.requirements[cardIdx];
+            const field = target.dataset.reqField;
+            if (!field) return;
+            if (field === 'type') {
+                const newType = Number(target.value || 0);
+                if (req.type !== newType) {
+                    req.type = newType;
+                    const grid = target.closest('.quest-card')?.querySelector('.req-grid');
+                    if (grid) {
+                        buildRequirementFields(grid, req);
+                    }
+                }
+                return;
+            }
+            if (field === 'description' || field === 'operator') {
+                req[field] = target.value ?? '';
+                return;
+            }
+            if (field === 'targetValue' && target.tagName === 'SELECT') {
+                req.targetValue = parseBoolValue(target.value);
+                return;
+            }
+            const num = Number(target.value || 0);
+            req[field] = Number.isNaN(num) ? 0 : num;
+        }
+
+        function applyObjectiveField(target) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.objectives) return;
+            const cardIdx = Number(target.closest('.quest-card')?.dataset.index);
+            if (!Number.isInteger(cardIdx) || cardIdx < 0 || cardIdx >= quest.objectives.length) return;
+            const obj = quest.objectives[cardIdx];
+            const field = target.dataset.objField || (target.classList.contains('obj-type') ? 'type' : null);
+            if (!field) return;
+            if (field === 'type') {
+                const newType = Number(target.value || 1);
+                if (obj.type !== newType) {
+                    obj.type = newType;
+                    const grid = target.closest('.quest-card')?.querySelector('.obj-grid');
+                    if (grid) {
+                        buildObjectiveFields(grid, obj);
+                    }
+                }
+                return;
+            }
+            if (field === 'calculateType') {
+                obj.calculateType = !!target.checked;
+                return;
+            }
+            if (field === 'operator' || field === 'description') {
+                obj[field] = target.value ?? '';
+                return;
+            }
+            if (field === 'targetValue' && target.tagName === 'SELECT') {
+                obj.targetValue = parseBoolValue(target.value);
+                return;
+            }
+            const num = Number(target.value || 0);
+            obj[field] = Number.isNaN(num) ? 0 : num;
+        }
+
+        function applyObjectiveSwitchField(target) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.objectives) return;
+            const cardIdx = Number(target.closest('.quest-card')?.dataset.index);
+            if (!Number.isInteger(cardIdx) || cardIdx < 0 || cardIdx >= quest.objectives.length) return;
+            const obj = quest.objectives[cardIdx];
+            if (!Array.isArray(obj.switches)) obj.switches = [];
+            const idx = Number(target.closest('[data-index]')?.dataset.index);
+            if (!Number.isInteger(idx) || idx < 0 || idx >= obj.switches.length) return;
+            const row = obj.switches[idx];
+            const field = target.dataset.objSwitchField;
+            if (!field) return;
+            if (field === 'value') {
+                row.value = target.value === 'true';
+                return;
+            }
+            row.switchId = Number(target.value || 0);
+        }
+
+        function applyObjectiveVariableField(target) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.objectives) return;
+            const cardIdx = Number(target.closest('.quest-card')?.dataset.index);
+            if (!Number.isInteger(cardIdx) || cardIdx < 0 || cardIdx >= quest.objectives.length) return;
+            const obj = quest.objectives[cardIdx];
+            if (!Array.isArray(obj.variables)) obj.variables = [];
+            const idx = Number(target.closest('[data-index]')?.dataset.index);
+            if (!Number.isInteger(idx) || idx < 0 || idx >= obj.variables.length) return;
+            const row = obj.variables[idx];
+            const field = target.dataset.objVariableField;
+            if (!field) return;
+            const num = Number(target.value || 0);
+            if (field === 'value') {
+                row.value = Number.isNaN(num) ? 0 : num;
+                return;
+            }
+            row.variableId = Number.isNaN(num) ? 0 : num;
+        }
+
+        function applyRewardField(target) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.rewards) return;
+            const cardIdx = Number(target.closest('.quest-card')?.dataset.index);
+            if (!Number.isInteger(cardIdx) || cardIdx < 0 || cardIdx >= quest.rewards.length) return;
+            const rew = quest.rewards[cardIdx];
+            const field = target.dataset.rewField || (target.classList.contains('rew-type') ? 'type' : null);
+            if (!field) return;
+            if (field === 'type') {
+                const newType = Number(target.value || 1);
+                if (rew.type !== newType) {
+                    rew.type = newType;
+                    const grid = target.closest('.quest-card')?.querySelector('.rew-grid');
+                    if (grid) {
+                        buildRewardFields(grid, rew);
+                    }
+                }
+                return;
+            }
+            if (field === 'operator' || field === 'description') {
+                rew[field] = target.value ?? '';
+                return;
+            }
+            if (field === 'targetValue' && target.tagName === 'SELECT') {
+                rew.targetValue = parseBoolValue(target.value);
+                return;
+            }
+            const num = Number(target.value || 0);
+            rew[field] = Number.isNaN(num) ? 0 : num;
+        }
+
+        function getQuestListKeyFromElement(el) {
+            if (!el) return null;
+            const list = el.closest('[data-quest-list]');
+            return list ? list.dataset.questList : null;
+        }
+
+        function getObjectiveListKeyFromElement(el) {
+            if (!el) return null;
+            const list = el.closest('[data-obj-list]');
+            return list ? list.dataset.objList : null;
+        }
+
+        function getListArrayByKey(quest, key) {
+            if (!quest) return null;
+            if (key === 'startSwitches') return quest.startSwitches;
+            if (key === 'switches') return quest.switches;
+            if (key === 'startVariables') return quest.startVariables;
+            if (key === 'variables') return quest.variables;
+            return null;
+        }
+
+        function removeObjectiveActionRow(target) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.objectives) return false;
+            const listKey = getObjectiveListKeyFromElement(target);
+            if (!listKey) return false;
+            const objIdx = Number(target.closest('.quest-card')?.dataset.index);
+            if (!Number.isInteger(objIdx) || objIdx < 0 || objIdx >= quest.objectives.length) return false;
+            const obj = quest.objectives[objIdx];
+            const list = listKey === 'switches' ? obj.switches : obj.variables;
+            if (!Array.isArray(list)) return false;
+            const idx = Number(target.closest('[data-index]')?.dataset.index);
+            if (!Number.isInteger(idx) || idx < 0 || idx >= list.length) return false;
+            list.splice(idx, 1);
+            const card = target.closest('.quest-card');
+            renderObjectiveActions(card, obj, objIdx);
+            return true;
+        }
+
+        function applySwitchField(target) {
+            const quest = getCurrentQuest();
+            if (!quest) return;
+            const key = getQuestListKeyFromElement(target);
+            const list = getListArrayByKey(quest, key);
+            if (!Array.isArray(list)) return;
+            const idx = Number(target.closest('[data-index]')?.dataset.index);
+            if (!Number.isInteger(idx) || idx < 0 || idx >= list.length) return;
+            const row = list[idx];
+            const field = target.dataset.switchField;
+            if (!field) return;
+            if (field === 'value') {
+                row.value = target.value === 'true';
+                return;
+            }
+            row[field] = Number(target.value || 0);
+        }
+
+        function applyVariableField(target) {
+            const quest = getCurrentQuest();
+            if (!quest) return;
+            const key = getQuestListKeyFromElement(target);
+            const list = getListArrayByKey(quest, key);
+            if (!Array.isArray(list)) return;
+            const idx = Number(target.closest('[data-index]')?.dataset.index);
+            if (!Number.isInteger(idx) || idx < 0 || idx >= list.length) return;
+            const row = list[idx];
+            const field = target.dataset.variableField;
+            if (!field) return;
+            if (field === 'value') {
+                row.value = Number(target.value || 0);
+                return;
+            }
+            row[field] = Number(target.value || 0);
+        }
+
+        function removeMiniRow(target) {
+            const quest = getCurrentQuest();
+            if (!quest) return;
+            if (removeObjectiveActionRow(target)) return;
+            const key = getQuestListKeyFromElement(target);
+            const list = getListArrayByKey(quest, key);
+            if (!Array.isArray(list)) return;
+            const idx = Number(target.closest('[data-index]')?.dataset.index);
+            if (!Number.isInteger(idx) || idx < 0 || idx >= list.length) return;
+            list.splice(idx, 1);
+            if (key === 'startSwitches' || key === 'switches') {
+                renderSwitchList(target.closest('[data-quest-list]'), list, key);
+            } else if (key === 'startVariables' || key === 'variables') {
+                renderVariableList(target.closest('[data-quest-list]'), list, key);
+            }
+        }
+
+        function addObjectiveAction(objIdx, listKey) {
+            const quest = getCurrentQuest();
+            if (!quest || !quest.objectives || !Array.isArray(quest.objectives)) return;
+            if (!Number.isInteger(objIdx) || objIdx < 0 || objIdx >= quest.objectives.length) return;
+            const obj = quest.objectives[objIdx];
+            if (!Array.isArray(obj.switches)) obj.switches = [];
+            if (!Array.isArray(obj.variables)) obj.variables = [];
+            if (listKey === 'switches') {
+                const defaultId = state.system.switches.length > 1 ? 1 : 0;
+                obj.switches.push({ switchId: defaultId, value: true });
+            } else if (listKey === 'variables') {
+                const defaultId = state.system.variables.length > 1 ? 1 : 0;
+                obj.variables.push({ variableId: defaultId, value: 0 });
+            }
+            const card = dom.objectiveList?.querySelector(`.quest-card[data-index="${objIdx}"]`);
+            if (card) {
+                renderObjectiveActions(card, obj, objIdx);
+            }
+            updateObjectiveActionSelects();
+        }
+
+        function onAddStartSwitch() {
+            addSwitch('startSwitches');
+        }
+        function onAddFinishSwitch() {
+            addSwitch('switches');
+        }
+        function onAddStartVariable() {
+            addVariable('startVariables');
+        }
+        function onAddFinishVariable() {
+            addVariable('variables');
+        }
+
+        function collectFormToQuest() {
+            const quest = state.currentIndex >= 0 ? state.quests[state.currentIndex] : null;
+            if (!quest) return;
+            quest.title = dom.title.value.trim() || '未命名任务';
+            quest.giver = dom.giver.value.trim() || 'NPC';
+            quest.category = dom.category.checked;
+            quest.repeatable = dom.repeatable.checked;
+            quest.difficulty = Number(dom.difficulty.value || 1);
+            quest.description = collectDescription(dom.description ? dom.description.value : '');
+        }
+
+        function collectDescription(text) {
+            const parts = text ? text.split(NL_REGEXP) : [];
+            const arr = [];
+            for (let i = 0; i < parts.length; i++) {
+                const t = parts[i];
+                if (!t) continue;
+                const trimmed = t.trim();
+                if (trimmed) arr.push(trimmed);
+            }
+            return arr;
+        }
+
+        function addRequirement() {
+            const quest = getCurrentQuest();
+            quest.requirements = quest.requirements || [];
+            quest.requirements.push({ type: 0, description: '' });
+            renderRequirementList(quest.requirements);
+        }
+
+        function addObjective() {
+            const quest = getCurrentQuest();
+            quest.objectives = quest.objectives || [];
+            quest.objectives.push({ type: 1, enemyId: 1, targetValue: 1, calculateType: true, operator: '>=', description: '', switches: [], variables: [] });
+            renderObjectiveList(quest.objectives);
+        }
+
+        function addReward() {
+            const quest = getCurrentQuest();
+            quest.rewards = quest.rewards || [];
+            quest.rewards.push({ type: 4, targetValue: 100, description: '' });
+            renderRewardList(quest.rewards);
+        }
+
+        function addSwitch(target) {
+            const quest = getCurrentQuest();
+            quest[target] = quest[target] || [];
+            const defaultId = state.system.switches.length > 1 ? 1 : 0;
+            quest[target].push({ switchId: defaultId, value: true });
+            renderSwitchList(target === 'startSwitches' ? dom.startSwitchList : dom.finishSwitchList, quest[target]);
+        }
+
+        function addVariable(target) {
+            const quest = getCurrentQuest();
+            quest[target] = quest[target] || [];
+            const defaultId = state.system.variables.length > 1 ? 1 : 0;
+            quest[target].push({ variableId: defaultId, value: 0 });
+            renderVariableList(target === 'startVariables' ? dom.startVariableList : dom.finishVariableList, quest[target]);
+        }
+
+        function getCurrentQuest() {
+            if (state.currentIndex < 0) return null;
+            return state.quests[state.currentIndex];
+        }
+
+        function newQuest() {
+            collectFormToQuest();
+            const quest = DEFAULT_QUEST();
+            state.quests.push(quest);
+            state.currentIndex = state.quests.length - 1;
+            renderQuestList();
+            selectQuest(state.currentIndex);
+        }
+
+        async function deleteQuest() {
+            if (state.currentIndex < 0) return;
+            collectFormToQuest();
+            const list = state.quests;
+            list.splice(state.currentIndex, 1);
+            state.currentIndex = Math.max(0, state.currentIndex - 1);
+            renderQuestList();
+            const quest = list[state.currentIndex];
+            if (quest) bindQuestToForm(quest);
+            await saveQuestFile();
+        }
+
+        async function saveQuestFile() {
+            if (!state.questFilePath) return;
+            const payload = [null, ...state.quests];
+            await electronAPI.writeFile(state.questFilePath, JSON.stringify(payload, null, 2), 'utf-8');
+            FileCacheManager.cache(state.questFilePath, state.questFilePath.split(TRANSFORM_REGEXP).pop() || 'Quests.json', payload);
+            updateQuestDataStatus();
+            syncQuestToCommonList();
+        }
+
+        async function loadQuestFile(filePath) {
+            if (!filePath) return;
+            try {
+                const raw = await electronAPI.readFile(filePath, 'utf-8');
+                const data = JSON.parse(raw);
+                let quests = Array.isArray(data) ? data.slice(1) : [];
+                if (!quests.length) quests = [DEFAULT_QUEST()];
+                state.quests = quests;
+                state.currentIndex = 0;
+                renderQuestList();
+                selectQuest(0);
+                state.questFilePath = filePath;
+                FileCacheManager.cache(filePath, filePath.split(TRANSFORM_REGEXP).pop() || 'Quests.json', data);
+                updateQuestDataStatus();
+                syncQuestToCommonList();
+            } catch (err) {
+                console.error(err)
+            }
+        }
+
+        async function init(options) {
+            state.dataPath = options.getDataDirectory?.() || options.dataPath || '';
+            state.questFilePath = options.questFilePath !== undefined ? options.questFilePath : (state.dataPath ? `${state.dataPath}/Quests.json` : '');
+            cacheDom(options.container);
+            fillQuestDifficulty();
+            bindEvents();
+            bindDataLoaders();
+            initQuestDataSelect();
+            if (state.questFilePath) {
+                await loadQuestFile(state.questFilePath);
+            } else {
+                renderQuestList();
+            }
+        }
+
+        function syncQuestToCommonList() {
+            // 将任务数据同步到通用列表（itemList），首位留空占位，与通用结构保持一致
+            appState.currentData = [null, ...state.quests];
+            appState.currentFileType = 'quest';
+            displayItemList();
+            markItemListActive(state.currentIndex + 1);
+        }
+
+        function handleCommonListSelect(idx) {
+            // 通用列表首位为占位，实际数据从 1 开始
+            const questIndex = idx - 1;
+            if (questIndex < 0 || questIndex >= state.quests.length) return;
+            selectQuest(questIndex);
+        }
+        const map = { enemy: 'enemy', actor: 'actor', weapon: 'weapon' };
+        function onExternalDataLoaded(type, filePath) {
+            const questKey = map[type];
+            if (!questKey || !filePath) return;
+            const cfg = QUEST_DATA_CONFIG[questKey];
+            const cached = FileCacheManager.get(filePath);
+            if (!cached || !cfg) return;
+            state.questDataPaths[questKey] = filePath;
+            applyLoadedQuestData(questKey, cached.data);
+            const statusEl = document.getElementById(cfg.statusRef);
+            if (statusEl) {
+                const count = Math.max((cached.data?.length || 0) - 1, 0);
+                const name = cached.fileName || filePath.split(TRANSFORM_REGEXP).pop() || filePath;
+                statusEl.textContent = `${name} · ${count} 条`;
+            }
+            refreshSelectSources();
+        }
+
+        return {
+            init,
+            refreshSelectSources,
+            loadQuestFile,
+            handleCommonListSelect,
+            syncQuestToCommonList,
+            newQuest,
+            deleteQuest,
+            saveQuestFile,
+            onExternalDataLoaded
+        };
+    })();
+    // ===================== Quest Editor Inline End =====================
+
+    // ===================== 任务编辑器状态与配置 =====================
+    const QUEST_REQUIREMENT_TYPES = [
+        { value: 0, label: '无要求' },
+        { value: 1, label: '等级要求' },
+        { value: 2, label: '前置任务' },
+        { value: 3, label: '物品' },
+        { value: 4, label: '武器' },
+        { value: 5, label: '防具' },
+        { value: 6, label: '开关' },
+        { value: 7, label: '变量' },
+        { value: 8, label: '金币' }
+    ];
+    const QUEST_OBJECTIVE_TYPES = [
+        { value: 1, label: '击杀敌人' },
+        { value: 2, label: '收集物品' },
+        { value: 3, label: '收集武器' },
+        { value: 4, label: '收集防具' },
+        { value: 5, label: '开关值' },
+        { value: 6, label: '变量值' },
+        { value: 7, label: '收集金币' }
+    ];
+    const QUEST_REWARD_TYPES = [
+        { value: 1, label: '物品' },
+        { value: 2, label: '武器' },
+        { value: 3, label: '防具' },
+        { value: 4, label: '金币' },
+        { value: 5, label: '经验值' },
+        { value: 6, label: '开关' },
+        { value: 7, label: '变量' }
+    ];
+    const QUEST_DIFFICULTIES = [
+        { value: 1, label: '简单' },
+        { value: 2, label: '普通' },
+        { value: 3, label: '困难' },
+        { value: 4, label: '专家' },
+        { value: 5, label: '大师' }
+    ];
+    const QUEST_OPERATORS = ['>', '>=', '<', '<=', '===', '!=='];
+
+    const DEFAULT_QUEST = () => ({
+        title: '新的任务',
+        giver: 'NPC',
+        category: true,
+        repeatable: false,
+        startSwitches: [],
+        startVariables: [],
+        switches: [],
+        variables: [],
+        difficulty: 1,
+        description: ['任务简介'],
+        requirements: [],
+        objectives: [
+            { type: 1, enemyId: 1, targetValue: 1, calculateType: true, operator: '>=', description: '击败1个敌人', switches: [], variables: [] }
+        ],
+        rewards: [{ type: 4, targetValue: 100, description: '获得100金币' }]
+    });
+    const QUEST_DATA_CONFIG = {
+        system: { label: '系统数据', defaultFile: 'System.json', statusRef: 'questSystemStatus', selectRef: 'questSystemFileSelect', loadRef: 'questSystemLoadBtn', pickRef: 'questSystemPickBtn' },
+        item: { label: '物品数据', defaultFile: 'Items.json', statusRef: 'questItemStatus', selectRef: 'questItemFileSelect', loadRef: 'questItemLoadBtn', pickRef: 'questItemPickBtn' },
+        weapon: { label: '武器数据', defaultFile: 'Weapons.json', statusRef: 'questWeaponStatus', selectRef: 'questWeaponFileSelect', loadRef: 'questWeaponLoadBtn', pickRef: 'questWeaponPickBtn' },
+        armor: { label: '防具数据', defaultFile: 'Armors.json', statusRef: 'questArmorStatus', selectRef: 'questArmorFileSelect', loadRef: 'questArmorLoadBtn', pickRef: 'questArmorPickBtn' },
+        enemy: { label: '敌人数据', defaultFile: 'Enemies.json', statusRef: 'questEnemyStatus', selectRef: 'questEnemyFileSelect', loadRef: 'questEnemyLoadBtn', pickRef: 'questEnemyPickBtn' },
+        actor: { label: '角色数据', defaultFile: 'Actors.json', statusRef: 'questActorStatus', selectRef: 'questActorFileSelect', loadRef: 'questActorLoadBtn', pickRef: 'questActorPickBtn' }
+    };
+
     //全局禁用管理器
     const DisabledManager = (() => {
         const disabledClass = 'ui-disabled';
@@ -704,6 +2227,7 @@
         initializeCodeEditor();
         listenMenuEvents();
         await ensurePathsConfigured();
+        await ensureQuestEditorReady().catch(() => { /* 初始化失败忽略，切换模式时再提示 */ });
         // 初始化时检查文件状态，如果没有文件则显示空状态
         if (!hasFileLoaded()) {
             showEmptyState();
@@ -813,6 +2337,9 @@
         if (DOM.projectileCreateTemplateBtn && !DOM.projectileCreateTemplateBtn.onclick) {
             DOM.projectileCreateTemplateBtn.onclick = createProjectileTemplate;
         }
+        if (DOM.projectileDeleteTemplateBtn && !DOM.projectileDeleteTemplateBtn.onclick) {
+            DOM.projectileDeleteTemplateBtn.onclick = () => deleteProjectileTemplate(appState.projectileSelectedTemplateIndex || 1);
+        }
         if (DOM.projectileSaveTemplateBtn && !DOM.projectileSaveTemplateBtn.onclick) {
             DOM.projectileSaveTemplateBtn.onclick = saveProjectileTemplate;
         }
@@ -832,22 +2359,25 @@
             const config = PROJECTILE_DATA_CONFIG[type];
             const select = DOM[config.selectRef];
             if (!select) continue;
+            recycleOptions(select);
             const fragment = document.createDocumentFragment();
-            const defaultOption = document.createElement('option');
-            defaultOption.value = config.defaultFile;
-            defaultOption.textContent = config.defaultFile;
-            fragment.appendChild(defaultOption);
+            const optionPool = getOptionPool();
+            const defaultOption = optionPool.get();
+            bindPoolItem(defaultOption.element, defaultOption);
+            defaultOption.element.value = config.defaultFile;
+            defaultOption.element.textContent = config.defaultFile;
+            fragment.appendChild(defaultOption.element);
             const custom = appState.projectileCustomFiles[type];
             if (custom) {
-                const customOption = document.createElement('option');
-                customOption.value = custom.path;
-                customOption.textContent = `${custom.label} (自定义)`;
-                fragment.appendChild(customOption);
+                const customOption = optionPool.get();
+                bindPoolItem(customOption.element, customOption);
+                customOption.element.value = custom.path;
+                customOption.element.textContent = `${custom.label} (自定义)`;
+                fragment.appendChild(customOption.element);
                 select.value = custom.path;
             } else {
                 select.value = config.defaultFile;
             }
-            select.innerHTML = '';
             select.appendChild(fragment);
         }
     }
@@ -878,9 +2408,13 @@
             this.element = document.createElement('option');
         }
         reset() {
-            this.element.value = '';
-            this.element.textContent = '';
-            this.element.selected = false;
+            const element = this.element;
+            if (element) {
+                element.__poolItem = null;
+            }
+            element.value = '';
+            element.textContent = '';
+            element.selected = false;
         }
         destroy() {
             if (this.element.parentNode) {
@@ -896,9 +2430,13 @@
             this.element = document.createElement('div');
         }
         reset() {
-            this.element.className = '';
-            this.element.innerHTML = '';
-            this.element.dataset.index = '';
+            const element = this.element;
+            if (element) {
+                element.__poolItem = null;
+            }
+            element.className = '';
+            element.textContent = '';
+            element.dataset.index = '';
         }
         destroy() {
             if (this.element.parentNode) {
@@ -913,9 +2451,12 @@
             this.element = document.createElement('label');
         }
         reset() {
-            this.element.textContent = '';
-            this.element.className = '';
-            this.element.innerHTML = '';
+            const element = this.element;
+            if (element) {
+                element.__poolItem = null;
+            }
+            element.textContent = '';
+            element.className = '';
         }
         destroy() {
             if (this.element.parentNode) {
@@ -930,14 +2471,40 @@
             this.element = document.createElement('input');
         }
         reset() {
-            this.element.value = '';
-            this.element.type = 'text';
-            this.element.className = '';
-            this.element.dataset.field = '';
-            this.element.min = '';
+            const element = this.element;
+            if (element) {
+                element.__poolItem = null;
+            }
+            element.value = '';
+            element.type = 'text';
+            element.className = '';
+            element.dataset.field = '';
+            element.min = '';
         }
         destroy() {
             if (this.element.parentNode) {
+                this.element.parentNode.removeChild(this.element);
+            }
+            this.element = null;
+        }
+    }
+
+    class SelectElement {
+        constructor() {
+            this.element = document.createElement('select');
+        }
+        reset() {
+            const element = this.element;
+            if (element) {
+                element.__poolItem = null;
+            }
+            element.className = '';
+            element.value = '';
+            element.dataset.index = '';
+            element.innerHTML = '';
+        }
+        destroy() {
+            if (this.element?.parentNode) {
                 this.element.parentNode.removeChild(this.element);
             }
             this.element = null;
@@ -949,10 +2516,14 @@
             this.element = document.createElement('button');
         }
         reset() {
-            this.element.textContent = '';
-            this.element.className = '';
-            this.element.type = 'button';
-            this.element.onclick = null;
+            const element = this.element;
+            if (element) {
+                element.__poolItem = null;
+            }
+            element.textContent = '';
+            element.className = '';
+            element.type = 'button';
+            element.onclick = null;
         }
         destroy() {
             if (this.element.parentNode) {
@@ -998,6 +2569,15 @@
         return InputPool;
     }
 
+    let SelectPool = null;
+    function getSelectPool() {
+        if (!SelectPool) {
+            const { createPool } = Zaun.Core.PoolSystem;
+            SelectPool = createPool('SelectElement', SelectElement, 50);
+        }
+        return SelectPool;
+    }
+
     let ButtonPool = null;
     function getButtonPool() {
         if (!ButtonPool) {
@@ -1007,13 +2587,66 @@
         return ButtonPool;
     }
 
+    // ===== 对象池辅助：绑定与回收 =====
+    function bindPoolItem(element, poolItem) {
+        if (element && poolItem) {
+            element.__poolItem = poolItem;
+        }
+    }
+
+    function recyclePoolItem(item) {
+        if (!item) return;
+        const ctor = item.constructor;
+        if (ctor === OptionElement) {
+            getOptionPool().return(item);
+        } else if (ctor === DivElement) {
+            getDivPool().return(item);
+        } else if (ctor === LabelElement) {
+            getLabelPool().return(item);
+        } else if (ctor === InputElement) {
+            getInputPool().return(item);
+        } else if (ctor === SelectElement) {
+            getSelectPool().return(item);
+        } else if (ctor === ButtonElement) {
+            getButtonPool().return(item);
+        }
+    }
+
+    function recyclePoolNode(node) {
+        if (!node) return;
+        const item = node.__poolItem;
+        if (!item) return;
+        node.__poolItem = null;
+        recyclePoolItem(item);
+    }
+
+    function recycleOptions(select) {
+        if (!select) return;
+        const children = Array.from(select.children);
+        for (let i = 0; i < children.length; i++) {
+            recyclePoolNode(children[i]);
+        }
+        select.innerHTML = '';
+    }
+
+    function recyclePoolTree(root) {
+        if (!root) return;
+        const nodes = root.querySelectorAll('*');
+        for (let i = 0; i < nodes.length; i++) {
+            recyclePoolNode(nodes[i]);
+        }
+        recyclePoolNode(root);
+        root.innerHTML = '';
+    }
+
     function populateCharacterList(select, data) {
         if (!select) return;
+        recycleOptions(select);
         const pool = getOptionPool();
         const fragment = document.createDocumentFragment();
-        select.innerHTML = '';
         if (!data) {
             const optionObj = pool.get();
+            bindPoolItem(optionObj.element, optionObj);
             optionObj.element.value = '';
             optionObj.element.textContent = '未加载';
             fragment.appendChild(optionObj.element);
@@ -1024,6 +2657,7 @@
             const entry = data[i];
             if (!entry) continue;
             const optionObj = pool.get();
+            bindPoolItem(optionObj.element, optionObj);
             const id = entry.id ?? i;
             optionObj.element.value = id;
             optionObj.element.textContent = `${id} · ${entry.name || entry.battlerName || '未命名'}`;
@@ -1036,11 +2670,12 @@
         const select = DOM.projectileWeaponOffsetSelect;
         const data = getProjectileDataArray('weapon');
         if (!select) return;
+        recycleOptions(select);
         const pool = getOptionPool();
         const fragment = document.createDocumentFragment();
-        select.innerHTML = '';
         if (!data) {
             const optionObj = pool.get();
+            bindPoolItem(optionObj.element, optionObj);
             optionObj.element.value = '';
             optionObj.element.textContent = '未加载';
             fragment.appendChild(optionObj.element);
@@ -1051,6 +2686,7 @@
             const weapon = data[i];
             if (!weapon) continue;
             const optionObj = pool.get();
+            bindPoolItem(optionObj.element, optionObj);
             const id = weapon.id ?? i;
             optionObj.element.value = id;
             optionObj.element.textContent = `${id} · ${weapon.name || '未命名'}`;
@@ -1063,11 +2699,12 @@
         const select = DOM.projectileSkillSelect;
         const data = getProjectileDataArray('skill');
         if (!select) return;
+        recycleOptions(select);
         const pool = getOptionPool();
         const fragment = document.createDocumentFragment();
-        select.innerHTML = '';
         if (!data) {
             const optionObj = pool.get();
+            bindPoolItem(optionObj.element, optionObj);
             optionObj.element.value = '';
             optionObj.element.textContent = '未加载';
             fragment.appendChild(optionObj.element);
@@ -1078,6 +2715,7 @@
             const skill = data[i];
             if (!skill) continue;
             const optionObj = pool.get();
+            bindPoolItem(optionObj.element, optionObj);
             const id = skill.id ?? i;
             optionObj.element.value = id;
             optionObj.element.textContent = `${id} · ${skill.name || '未命名'}`;
@@ -1088,11 +2726,12 @@
 
     function populateAnimationSelect(targetSelect) {
         if (!targetSelect) return;
+        recycleOptions(targetSelect);
         const data = getProjectileDataArray('animation');
-        targetSelect.innerHTML = '';
         const fragment = document.createDocumentFragment();
         const optionPool = getOptionPool();
         const empty = optionPool.get();
+        bindPoolItem(empty.element, empty);
         empty.element.value = '';
         empty.element.textContent = data ? '选择动画' : '未加载';
         fragment.appendChild(empty.element);
@@ -1101,6 +2740,7 @@
                 const anim = data[i];
                 if (!anim) continue;
                 const optionObj = optionPool.get();
+                bindPoolItem(optionObj.element, optionObj);
                 const id = anim.id ?? i;
                 optionObj.element.value = id;
                 optionObj.element.textContent = `${id} · ${anim.name || '未命名动画'}`;
@@ -1367,27 +3007,30 @@
     function renderProjectileSegments() {
         ensureProjectileSegments();
         if (!DOM.projectileSegmentList) return;
+        recyclePoolTree(DOM.projectileSegmentList);
         const optionPool = getOptionPool();
         const divPool = getDivPool();
         const labelPool = getLabelPool();
         const inputPool = getInputPool();
         const buttonPool = getButtonPool();
         const fragment = document.createDocumentFragment();
-        DOM.projectileSegmentList.innerHTML = '';
         const projectileSegments = appState.projectileSegments;
         for (let i = 0; i < projectileSegments.length; i++) {
             const segment = projectileSegments[i];
             const itemObj = divPool.get();
             const item = itemObj.element;
+            bindPoolItem(item, itemObj);
             item.className = 'projectile-segment-item';
             item.dataset.index = i;
             for (let j = 0; j < fields.length; j++) {
                 const field = fields[j];
                 const labelObj = labelPool.get();
                 const label = labelObj.element;
+                bindPoolItem(label, labelObj);
                 label.textContent = field.label;
                 const inputObj = inputPool.get();
                 const input = inputObj.element;
+                bindPoolItem(input, inputObj);
                 input.type = field.type;
                 input.value = segment[field.key] ?? '';
                 input.min = '0';
@@ -1397,14 +3040,19 @@
             }
             const easeXLabelObj = labelPool.get();
             const easeXLabel = easeXLabelObj.element;
+            bindPoolItem(easeXLabel, easeXLabelObj);
             easeXLabel.textContent = 'X 缓动';
-            const easeXSelect = document.createElement('select');
+            const easeXObj = getSelectPool().get();
+            const easeXSelect = easeXObj.element;
+            bindPoolItem(easeXSelect, easeXObj);
             easeXSelect.className = 'theme-select';
             easeXSelect.dataset.field = 'easeX';
+            recycleOptions(easeXSelect);
             const easeXFragment = document.createDocumentFragment();
             for (let k = 0; k < PROJECTILE_EASE_OPTIONS.length; k++) {
                 const opt = PROJECTILE_EASE_OPTIONS[k];
                 const optionObj = optionPool.get();
+                bindPoolItem(optionObj.element, optionObj);
                 optionObj.element.value = opt.value;
                 optionObj.element.textContent = opt.label;
                 easeXFragment.appendChild(optionObj.element);
@@ -1415,14 +3063,19 @@
             item.appendChild(easeXLabel);
             const easeYLabelObj = labelPool.get();
             const easeYLabel = easeYLabelObj.element;
+            bindPoolItem(easeYLabel, easeYLabelObj);
             easeYLabel.textContent = 'Y 缓动';
-            const easeYSelect = document.createElement('select');
+            const easeYObj = getSelectPool().get();
+            const easeYSelect = easeYObj.element;
+            bindPoolItem(easeYSelect, easeYObj);
             easeYSelect.className = 'theme-select';
             easeYSelect.dataset.field = 'easeY';
+            recycleOptions(easeYSelect);
             const easeYFragment = document.createDocumentFragment();
             for (let k = 0; k < PROJECTILE_EASE_OPTIONS.length; k++) {
                 const opt = PROJECTILE_EASE_OPTIONS[k];
                 const optionObj = optionPool.get();
+                bindPoolItem(optionObj.element, optionObj);
                 optionObj.element.value = opt.value;
                 optionObj.element.textContent = opt.label;
                 easeYFragment.appendChild(optionObj.element);
@@ -1433,6 +3086,7 @@
             item.appendChild(easeYLabel);
             const removeBtnObj = buttonPool.get();
             const removeBtn = removeBtnObj.element;
+            bindPoolItem(removeBtn, removeBtnObj);
             removeBtn.type = 'button';
             removeBtn.className = 'action-btn tiny secondary';
             removeBtn.textContent = '删除';
@@ -1504,9 +3158,10 @@
             cached = FileCacheManager.get(filePath);
         }
         appState.projectileDataPaths[type] = filePath;
-        const fileName = cached?.fileName || fileValue || filePath.split(/[\\/]/).pop() || '已加载';
+        const fileName = cached?.fileName || fileValue || filePath.split(TRANSFORM_REGEXP).pop() || '已加载';
         const count = Math.max(rows.length - 1, 0);
         setProjectileStatus(type, `${fileName} · ${count} 条`);
+        registerProjectileDataFile(fileName, filePath);
         populateProjectileCharacterSelects();
         refreshActorOffsetInputs();
         refreshEnemyOffsetInputs();
@@ -1687,6 +3342,36 @@
         } catch (error) {
             showError('新建弹道模板失败: ' + error.message);
         }
+    }
+
+    async function deleteProjectileTemplate(index) {
+        const templates = appState.projectileTemplates;
+        if (!Array.isArray(templates) || templates.length <= 1) return;
+        const target = Number(index);
+        if (!target || target <= 0 || target >= templates.length) return;
+        templates.splice(target, 1);
+        appState.projectileSelectedTemplateIndex = Math.min(target, templates.length - 1 || 1);
+        await persistProjectileTemplates();
+        displayItemList();
+        focusProjectileTemplate(appState.projectileSelectedTemplateIndex);
+        updateStatus('✅ 已删除弹道模板');
+    }
+
+    async function copyProjectileTemplate(index = appState.currentItemIndex || appState.projectileSelectedTemplateIndex || 1) {
+        const templates = appState.projectileTemplates;
+        if (!Array.isArray(templates) || templates.length <= 1) return;
+        const srcIndex = Number(index) || 1;
+        if (!templates[srcIndex]) return;
+        const cloned = JSON.parse(JSON.stringify(templates[srcIndex]));
+        cloned.name = `${cloned.name || '新弹道'}_复制`;
+        const newIndex = templates.length;
+        templates[newIndex] = cloned;
+        appState.projectileSelectedTemplateIndex = newIndex;
+        await persistProjectileTemplates();
+        displayItemList();
+        markItemListActive(newIndex);
+        focusProjectileTemplate(newIndex);
+        updateStatus(`✅ 已复制弹道模板 #${newIndex}`);
     }
 
     function setProjectileStatus(type, message) {
@@ -2090,8 +3775,16 @@
         return appState.currentFilePath === appState.projectileFilePath;
     }
 
+    function isQuestDataFileName(fileName) {
+        if (typeof fileName !== 'string') return false;
+        const lower = fileName.toLowerCase();
+        return lower === 'quests.json';
+    }
+
     function isProjectileDataFileName(fileName) {
-        return typeof fileName === 'string' && fileName.toLowerCase() === 'projectile.json';
+        if (typeof fileName !== 'string') return false;
+        const lower = fileName.toLowerCase();
+        return lower === 'projectiles.json';
     }
 
     function normalizeItemScriptPaths(item) {
@@ -2319,12 +4012,18 @@
         if (DOM.projectileModePanel) {
             DOM.projectileModePanel.classList.add('hidden');
         }
+        if (DOM.questModePanel) {
+            DOM.questModePanel.classList.add('hidden');
+        }
     }
 
     //显示空状态提示
     function showEmptyState() {
         if (DOM.emptyStatePanel) {
             DOM.emptyStatePanel.classList.remove('hidden');
+        }
+        if (DOM.projectActions) {
+            DOM.projectActions.classList.add('hidden');
         }
         hideAllModePanels();
     }
@@ -2336,11 +4035,129 @@
         }
     }
 
+    let questEditorReady = null;
+    let questEditorInitialized = false;
+    let dataFilesEnsured = false;
+    const DEFAULT_QUEST_OBJECT = () => ({
+        title: '新的任务',
+        giver: 'NPC',
+        category: true,
+        repeatable: false,
+        startSwitches: [],
+        startVariables: [],
+        switches: [],
+        variables: [],
+        difficulty: 1,
+        description: ['任务简介'],
+        requirements: [],
+        objectives: [
+            {
+                type: 1,
+                enemyId: 1,
+                targetValue: 1,
+                calculateType: true,
+                operator: '>=',
+                description: '击败1个敌人',
+                switches: [],
+                variables: []
+            }
+        ],
+        rewards: [{ type: 4, targetValue: 100, description: '获得100金币' }]
+    });
+
+    function loadStyleOnce(id, href) {
+        return new Promise((resolve, reject) => {
+            if (document.getElementById(id)) {
+                resolve();
+                return;
+            }
+            const link = document.createElement('link');
+            link.id = id;
+            link.rel = 'stylesheet';
+            link.href = href;
+            link.onload = () => resolve();
+            link.onerror = (e) => reject(e);
+            document.head.appendChild(link);
+        });
+    }
+
+    function loadScriptOnce(id, src) {
+        return new Promise((resolve, reject) => {
+            if (document.getElementById(id)) {
+                resolve();
+                return;
+            }
+            const script = document.createElement('script');
+            script.id = id;
+            script.src = src;
+            script.onload = () => resolve();
+            script.onerror = (e) => reject(e);
+            document.body.appendChild(script);
+        });
+    }
+
+    async function ensureDataFileExists(fileName, generator) {
+        const dir = getDataDirectory();
+        if (!dir) {
+            return null;
+        }
+        const filePath = `${dir}/${fileName}`;
+        try {
+            await electronAPI.readFile(filePath, 'utf-8');
+            return filePath;
+        } catch (err) {
+            const payload = generator();
+            await electronAPI.writeFile(filePath, JSON.stringify(payload, null, 2), 'utf-8');
+            updateStatus(`✅ 已创建 ${fileName}`);
+            return filePath;
+        }
+    }
+
+    async function ensureCoreDataFiles() {
+        if (dataFilesEnsured) return;
+        dataFilesEnsured = true;
+        const questPath = await ensureDataFileExists('Quests.json', () => [null, DEFAULT_QUEST_OBJECT()]);
+        const projectilePath = await ensureDataFileExists('Projectiles.json', () => DEFAULT_PROJECTILE_TEMPLATES);
+        if (questPath) {
+            appState.questFilePath = questPath;
+            if (window.QuestEditor?.onDataPathChange) {
+                window.QuestEditor.onDataPathChange(getDataDirectory());
+            }
+        }
+        if (projectilePath) {
+            appState.projectileFilePath = projectilePath;
+        }
+    }
+
+    async function ensureQuestEditorReady() {
+        if (questEditorReady) return questEditorReady;
+        questEditorReady = (async () => {
+            if (!DOM.questModePanel) throw new Error('Quest 面板未找到');
+            await ensureCoreDataFiles();
+            const questFilePath = appState.currentFileType === 'quest' ? appState.questFilePath : '';
+            await loadStyleOnce('quest-editor-style', '../editor/quest-editor.css');
+            const html = await fetch('../editor/quest-editor.html').then(r => r.text());
+            // 将任务编辑器内容注入 questModePanel 内部
+            DOM.questModePanel.innerHTML = html;
+            if (QuestEditor?.init) {
+                await QuestEditor.init({
+                    container: DOM.questModePanel,
+                    electronAPI,
+                    getDataDirectory,
+                    updateStatus,
+                    questFilePath
+                });
+            }
+            questEditorInitialized = true;
+            return QuestEditor;
+        })();
+        return questEditorReady;
+    }
+
     function switchMode(mode) {
-        // 设置模式（即使模式相同，也要检查文件状态）
-        const modeChanged = appState.uiMode !== mode;
-        if (!modeChanged) return;
+        // 设置模式，允许同一模式重复切换以强制刷新
         appState.setMode(mode);
+        setQuestActionButtonsVisible(mode === 'quest');
         // 如果没有文件加载，显示空状态提示（无论模式是否改变）
         if (!hasFileLoaded()) {
             showEmptyState();
@@ -2364,6 +4181,16 @@
                 DOM.projectileModePanel.classList.remove('hidden');
             }
             renderProjectilePanel();
+        } else if (mode === 'quest') {
+            hideAllModePanels();
+            if (DOM.questModePanel) {
+                DOM.questModePanel.classList.remove('hidden');
+            }
+            if (questEditorInitialized && QuestEditor?.syncQuestToCommonList) {
+                QuestEditor.syncQuestToCommonList();
+            } else if (!questEditorInitialized) {
+                showError('任务编辑器未初始化');
+            }
         } else {
             // script 模式
             hideAllModePanels();
@@ -2493,7 +4320,7 @@
                     this.valueElement.textContent = JSON.stringify(value, null, 2);
                 }
             } else {
-                this.valueElement.textContent = String(value);
+                this.valueElement.textContent = `${value}`;
             }
             return this.element;
         }
@@ -2868,7 +4695,8 @@
                 this.element.appendChild(this.timeElement);
             }
             this.filePath = filePath;
-            this.nameElement.textContent = fileName || filePath;
+            const baseName = (fileName || filePath || '').split(TRANSFORM_REGEXP).pop() || fileName || filePath;
+            this.nameElement.textContent = baseName;
             this.pathElement.textContent = filePath;
             const date = new Date(timestamp);
             this.timeElement.textContent = DateFormatter.format(date);
@@ -2934,7 +4762,8 @@
             for (let i = 0; i < listLength; i++) {
                 const file = historyList[i];
                 const item = pool.get();
-                const element = item.init(file.path, file.fileName, file.timestamp);
+                const displayName = (file.fileName || file.path || '').split(TRANSFORM_REGEXP).pop() || file.fileName || file.path;
+                const element = item.init(file.path, displayName, file.timestamp);
                 element.__historyFileItem = item;
                 element.dataset.index = i;
                 list.appendChild(element);
@@ -2957,7 +4786,7 @@
             window.ipcOn('set-data-path', handleSetDataPath);
             window.ipcOn('set-script-path', handleSetScriptPath);
             window.ipcOn('save-settings', handleSaveSettings);
-            window.ipcOn('switch-mode', switchMode);
+            window.ipcOn('switch-mode', (mode) => switchMode(mode, true));
             window.ipcOn('show-history-files', showHistoryFilesDialog);
         }
     }
@@ -2983,13 +4812,31 @@
             appState.currentFile = fileName;
             appState.currentFilePath = filePath;
             const currentData = appState.currentData = fromCache ? data : JSON.parse(data);
-            if (isProjectileDataFileName(fileName) && Array.isArray(currentData)) {
+            const isQuestFile = isQuestDataFileName(fileName);
+            const isProjectileFile = isProjectileDataFileName(fileName);
+            if (isQuestFile && Array.isArray(currentData)) {
+                appState.currentFileType = 'quest';
+                appState.questFilePath = filePath;
+                appState.uiMode = 'quest';
+                if (questEditorInitialized) {
+                    QuestEditor?.loadQuestFile?.(filePath);
+                    QuestEditor?.syncQuestToCommonList?.();
+                }
+            }
+            if (isProjectileFile && Array.isArray(currentData)) {
+                appState.currentFileType = 'projectile';
+                appState.uiMode = 'projectile';
+                appState.isProjectileFileLoaded = true;
                 appState.projectileTemplates = currentData;
                 appState.projectileFilePath = filePath;
                 appState.projectileSelectedTemplateIndex = Math.min(
                     appState.projectileSelectedTemplateIndex,
                     Math.max(1, currentData.length - 1)
                 );
+            }
+            if (!isQuestFile && !isProjectileFile) {
+                appState.currentFileType = '';
+                appState.uiMode = 'script';
             }
             //性能优化：为所有有 note 的数据项提取元数据（使用缓存优化）
             updateFileCache();
@@ -3009,8 +4856,12 @@
                 }
             }
             hideEmptyState();
+            if (DOM.projectActions) {
+                DOM.projectActions.classList.remove('hidden');
+            }
+            const resolvedMode = appState.uiMode || 'script';
             // 根据当前模式更新UI（确保显示正确的面板）
-            switchMode(appState.uiMode || 'script');
+            switchMode(resolvedMode);
             displayItemList();
             updateStatus(`已加载 ${fileName}${fromCache ? '（从缓存）' : ''}，共 ${currentData.length - 1} 个项目`);
             // 自动选择第一个项目
@@ -3059,6 +4910,9 @@
         refreshProjectileResourceStatuses();
         populateProjectileFileSelects();
         populateProjectileCharacterSelects();
+        if (QuestEditor?.onExternalDataLoaded) {
+            QuestEditor.onExternalDataLoaded(hitType, filePath);
+        }
     }
     // ===== 脚本文件头部时间戳处理 =====
     //正则表达式：匹配脚本文件头部的时间戳行
@@ -3085,6 +4939,35 @@
             }
         }
         return lines.slice(codeStartIndex).join('\n');
+    }
+
+    function applyTimestampToActiveEditor(timestampLine) {
+        if (!appState.codeEditor || !isMonacoLoaded || typeof monaco === 'undefined') {
+            return;
+        }
+        const model = appState.codeEditor.getModel();
+        if (!model || !timestampLine) {
+            return;
+        }
+        const firstLine = model.getLineContent(1);
+        if (firstLine === timestampLine) {
+            return;
+        }
+        const edits = [];
+        if (SCRIPT_TIMESTAMP_REGEXP.test(firstLine)) {
+            edits.push({
+                range: new monaco.Range(1, 1, 1, firstLine.length + 1),
+                text: timestampLine
+            });
+        } else {
+            edits.push({
+                range: new monaco.Range(1, 1, 1, 1),
+                text: `${timestampLine}\n`
+            });
+        }
+        appState.codeEditor.pushUndoStop();
+        model.pushEditOperations([], edits, () => null);
+        appState.codeEditor.pushUndoStop();
     }
     // ===== 代码编辑器状态管理 =====
     //根据脚本数量控制代码编辑器的启用/禁用状态
@@ -3211,9 +5094,6 @@
         }
         reset() {
             this.index = -1;
-            this.element = null;
-            this.idElement = null;
-            this.nameElement = null;
         }
         init(index, id, name) {
             if (!this.element) {
@@ -3251,8 +5131,6 @@
         }
         reset() {
             this.key = null;
-            this.element = null;
-            this.spanElement = null;
         }
         init(key) {
             if (!this.element) {
@@ -3362,11 +5240,14 @@
         }
         // 使用 Fragment 优化 DOM 插入
         const fragment = document.createDocumentFragment();
+        const isQuest = appState.currentFileType === "quest";
         for (let i = 1; i < currentData.length; i++) {
             const item = currentData[i];
             if (item === null) continue;
             const itemId = item.id || i;
-            const itemName = item.name || `[无名]`;
+            const itemName = isQuest
+                ? (item.title || `任务${i}`)
+                : (item.name || `[无名]`);
             const listItem = pool.get();
             const itemEl = listItem.init(i, itemId, itemName);
             itemEl.__listItem = listItem; // 绑定引用以便回收
@@ -3385,20 +5266,121 @@
         }
     }
 
+    async function handleCreateItem() {
+        if (appState.currentFileType === 'quest' || appState.currentFileType === 'projectile') {
+            const ok = await confirmAction(`确定新建${appState.currentFileType === 'quest' ? '任务' : '弹道'}吗？`);
+            if (!ok) return;
+        }
+        if (appState.currentFileType === 'quest') {
+            QuestEditor.newQuest();
+            QuestEditor.syncQuestToCommonList();
+            await QuestEditor.saveQuestFile();
+            return;
+        }
+        if (appState.currentFileType === 'projectile') {
+            await createProjectileTemplate();
+            return;
+        }
+        if (!appState.currentData) return;
+        const newItem = { id: appState.currentData.length, name: '新建项' };
+        appState.currentData.push(newItem);
+        appState.currentItemIndex = appState.currentData.length - 1;
+        appState.currentItem = newItem;
+        displayItemList();
+        selectItem(appState.currentItemIndex);
+        await persistCurrentData('✅ 已新建项目');
+    }
+
+    async function handleCopyItem() {
+        updateStatus('复制功能已禁用');
+    }
+
+    async function handleDeleteItem() {
+        if (appState.currentFileType === 'quest' || appState.currentFileType === 'projectile') {
+            const ok = await confirmAction(`确定删除${appState.currentFileType === 'quest' ? '任务' : '弹道'}吗？`);
+            if (!ok) return;
+        }
+        if (appState.currentFileType === 'quest') {
+            await QuestEditor.deleteQuest();
+            return;
+        }
+        if (appState.currentFileType === 'projectile') {
+            const idx = appState.currentItemIndex || appState.projectileSelectedTemplateIndex || 1;
+            await deleteProjectileTemplate(idx);
+            return;
+        }
+        if (!appState.currentData || appState.currentItemIndex === null || appState.currentItemIndex < 1) return;
+        const idx = appState.currentItemIndex;
+        appState.currentData.splice(idx, 1);
+        appState.currentItemIndex = Math.max(1, idx - 1);
+        appState.currentItem = appState.currentData[appState.currentItemIndex];
+        displayItemList();
+        selectItem(appState.currentItemIndex);
+        await persistCurrentData('✅ 已删除项目');
+    }
+
+    async function handleSaveItem() {
+        if (appState.currentFileType === 'quest' || appState.currentFileType === 'projectile') {
+            const ok = await confirmAction(`确定保存${appState.currentFileType === 'quest' ? '任务' : '弹道'}吗？`);
+            if (!ok) return;
+        }
+        if (appState.currentFileType === 'quest') {
+            await QuestEditor.saveQuestFile();
+            return;
+        }
+        if (appState.currentFileType === 'projectile') {
+            await saveProjectileTemplate();
+            return;
+        }
+        if (!appState.currentData || appState.currentItemIndex === null) return;
+        await persistCurrentData('✅ 已保存任务');
+    }
+
     // 新增：使用事件委托处理项目列表点击事件
     function setupItemListDelegate() {
         const itemList = DOM.itemList;  // 优化：使用缓存的 DOM
         if (!itemList) return;
         // 优化：检查是否已绑定，防止重复监听器和内存泄漏
-        if (itemList.__clickListenerAdded) {
-            return;  // 已经绑定过，直接返回
+        if (!itemList.__clickListenerAdded) {
+            itemList.addEventListener('click', handleItemListClick);
+            itemList.__clickListenerAdded = true;
         }
-        // 使用已定义的函数，不再创建新函数
-        itemList.addEventListener('click', handleItemListClick);
-        itemList.__clickListenerAdded = true;
+        if (DOM.itemNewBtn && !DOM.itemNewBtn.onclick) {
+            DOM.itemNewBtn.onclick = handleCreateItem;
+        }
+        if (DOM.itemCopyBtn && !DOM.itemCopyBtn.onclick) {
+            DOM.itemCopyBtn.onclick = handleCopyItem;
+        }
+        if (DOM.itemDeleteBtn && !DOM.itemDeleteBtn.onclick) {
+            DOM.itemDeleteBtn.onclick = handleDeleteItem;
+        }
+        if (DOM.itemSaveBtn && !DOM.itemSaveBtn.onclick) {
+            DOM.itemSaveBtn.onclick = handleSaveItem;
+        }
+    }
+
+    const checkButtons = [];
+    function setQuestActionButtonsVisible(visible) {
+        if (checkButtons.length === 0) {
+            checkButtons.push(DOM.itemNewBtn,
+                DOM.itemCopyBtn,
+                DOM.itemDeleteBtn,
+                DOM.itemSaveBtn)
+        }
+        for (let i = 0; i < 4; i++) {
+            const btn = checkButtons[i];
+            if (btn) {
+                btn.classList.toggle('hidden', !visible);
+            }
+        }
     }
 
     function selectItem(index) {
+        if (appState.currentFileType === 'quest') {
+            QuestEditor.handleCommonListSelect(index);
+            appState.currentItemIndex = index;
+            return;
+        }
         if (index === appState.currentItemIndex) {
             return;
         }
@@ -3619,6 +5601,7 @@
     let isMonacoLoaded = false;
     let monacoInitPromise = null;
     let pendingWorkspaceRoot = null;
+    let activeEditorModel = null;
     const MONOKAI_THEME_JSON_PATH = '../js/monaco-pro-theme.json';
     const fallbackMonokaiTheme = {
         base: 'vs-dark',
@@ -3676,11 +5659,11 @@
                         monaco.editor.defineTheme('monokai-pro', themeToUse);
                         monaco.editor.setTheme('monokai-pro');
                         isMonacoLoaded = true;
-                            // 如果有待应用的工作区，优先应用
-                            if (pendingWorkspaceRoot) {
-                                applyTsWorkspaceSettings(pendingWorkspaceRoot);
-                                pendingWorkspaceRoot = null;
-                            }
+                        // 如果有待应用的工作区，优先应用
+                        if (pendingWorkspaceRoot) {
+                            applyTsWorkspaceSettings(pendingWorkspaceRoot);
+                            pendingWorkspaceRoot = null;
+                        }
                         resolve();
                     };
                     // 尝试加载官方 Monokai JSON 主题，失败后退回内置配色
@@ -3712,7 +5695,17 @@
         const uri = filePath
             ? monaco.Uri.file(filePath)
             : monaco.Uri.parse(`inmemory://model/${safeName}.${language}`);
-        let model = monaco.editor.getModel(uri);
+        const targetModel = monaco.editor.getModel(uri);
+        if (activeEditorModel && activeEditorModel !== targetModel) {
+            if (appState.codeEditor.getModel() === activeEditorModel) {
+                appState.codeEditor.setModel(null);
+            }
+            if (!activeEditorModel.isDisposed?.()) {
+                activeEditorModel.dispose();
+            }
+            activeEditorModel = null;
+        }
+        let model = targetModel;
         if (!model) {
             model = monaco.editor.createModel(content, language, uri);
         } else {
@@ -3720,6 +5713,7 @@
             monaco.editor.setModelLanguage(model, language);
         }
         appState.codeEditor.setModel(model);
+        activeEditorModel = model;
     }
 
     // ===== TS 工作区/类型支持 =====
@@ -4008,49 +6002,56 @@
     }
     async function saveCode() {
         try {
-            // 优化：saveCode 只用于保存现有脚本，不负责创建新脚本
+            // ???saveCode ??????????????????
             if (!appState.currentScriptKey) {
-                showError('请先选择要编辑的脚本');
+                showError('??????????');
                 return;
             }
             const code = appState.codeEditor.getValue();
-            // 编辑现有脚本要求代码不为空
+            // ?????????????
             if (!code.trim()) {
-                showError('代码不能为空');
+                showError('??????');
                 return;
             }
             if (!appState.currentFile || !appState.currentItem) {
-                showError('请先选择文件和项目');
+                showError('?????????');
                 return;
             }
-            showLoading(true, '保存代码中...');
+            showLoading(true, '?????...');
             const storedPath = appState.currentItem.scripts[appState.currentScriptKey];
             const filePath = resolveScriptFilePath(storedPath);
             if (!filePath) {
-                showError('脚本路径无效');
+                showError('??????');
                 showLoading(false);
                 return;
             }
-            //从编辑器内容中提取实际代码（去除时间戳，因为编辑器可能包含旧的时间戳）
+            //???????????????????????????????????
             const codeToSave = extractScriptCode(code).trim();
-            //构建新的文件内容：更新时间戳 + 代码
-            const newTimestamp = `// 保存时间: ${DateFormatter.format(new Date())}`;
+            const cachedContent = ScriptCacheManager.get(filePath);
+            if (cachedContent !== null) {
+                const previousCode = extractScriptCode(cachedContent).trim();
+                if (previousCode === codeToSave) {
+                    updateStatus('?????????????');
+                    showLoading(false);
+                    return;
+                }
+            }
+            //?????????????? + ??
+            const newTimestamp = `// ????: ${DateFormatter.format(new Date())}`;
             const newFileContent = `${newTimestamp}\n${codeToSave}`;
-            //写入文件
+            //????
             await electronAPI.writeFile(filePath, newFileContent);
-            // 更新缓存，直接使用新内容，避免再次读取
+            // ???????????????????
             ScriptCacheManager.set(filePath, newFileContent);
             const newStoredPath = formatStoredScriptPath(filePath);
             if (newStoredPath) {
                 appState.currentItem.scripts[appState.currentScriptKey] = newStoredPath;
             }
-            if (appState.codeEditor) {
-                appState.codeEditor.setValue(newFileContent);
-            }
-            updateStatus(`✅ 脚本已保存: ${appState.currentScriptKey}`);
+            applyTimestampToActiveEditor(newTimestamp);
+            updateStatus(`? ?????: ${appState.currentScriptKey}`);
             showLoading(false);
         } catch (error) {
-            showError('保存代码失败: ' + error.message);
+            showError('??????: ' + error.message);
             showLoading(false);
         }
     }
@@ -4144,6 +6145,11 @@
         updateConfigPath('dataPath', dataPath, '数据目录');
         invalidateProjectileResources(null, true);
         ScriptCacheManager.clear();
+        if (window.QuestEditor?.onDataPathChange) {
+            window.QuestEditor.onDataPathChange(getDataDirectory());
+        }
+        dataFilesEnsured = false;
+        ensureCoreDataFiles().catch(() => { /* ignore */ });
     }
     function handleSetScriptPath(scriptPath) {
         if (!scriptPath) {
@@ -4249,16 +6255,33 @@
             DOM.statusText.textContent = text;
         }
     }
+
+    async function confirmAction(message) {
+        try {
+            const result = await electronAPI.showMessageBox({
+                type: 'question',
+                title: '请确认',
+                message: message || '确定执行此操作吗？',
+                buttons: ['取消', '确定'],
+                defaultId: 1,
+                cancelId: 0
+            });
+            return result.response === 1;
+        } catch (err) {
+            console.error('确认对话框失败', err);
+            return false;
+        }
+    }
     function updateStats() {
-        const code = appState.codeEditor ? appState.codeEditor.getValue() : '';
-        const lines = code.split('\n').length;
-        const chars = code.length;
+        const model = appState.codeEditor ? appState.codeEditor.getModel() : null;
+        const lineCount = model ? model.getLineCount() : 0;
+        const charCount = model ? model.getValueLength() : 0;
 
         if (DOM.characterCount) {
-            DOM.characterCount.textContent = chars;
+            DOM.characterCount.textContent = charCount;
         }
         if (DOM.lineCount) {
-            DOM.lineCount.textContent = lines;
+            DOM.lineCount.textContent = lineCount;
         }
     }
     function showError(message) {

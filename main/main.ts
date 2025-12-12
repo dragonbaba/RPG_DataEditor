@@ -234,6 +234,16 @@ function createMenu() {
                             mainWindow.webContents.send('switch-mode', 'projectile');
                         }
                     }
+                },
+                {
+                    label: '任务',
+                    id: 'mode-quest',
+                    type: 'radio',
+                    click: () => {
+                        if (mainWindow) {
+                            mainWindow.webContents.send('switch-mode', 'quest');
+                        }
+                    }
                 }
             ]
         },

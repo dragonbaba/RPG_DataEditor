@@ -1,0 +1,201 @@
+<div class="quest-editor">
+    <div class="quest-main">
+        <div class="quest-file-bar">
+            <div class="quest-file-controls">
+                <label>系统数据</label>
+                <select id="questSystemFileSelect" class="theme-select"></select>
+                <button id="questSystemLoadBtn" class="action-btn tiny" data-type="system">加载</button>
+                <button id="questSystemPickBtn" class="action-btn tiny secondary" data-type="system">选择文件</button>
+                <span id="questSystemStatus" class="quest-data-status">尚未加载</span>
+            </div>
+            <div class="quest-file-controls">
+                <label>物品</label>
+                <select id="questItemFileSelect" class="theme-select"></select>
+                <button id="questItemLoadBtn" class="action-btn tiny" data-type="item">加载</button>
+                <button id="questItemPickBtn" class="action-btn tiny secondary" data-type="item">选择文件</button>
+                <span id="questItemStatus" class="quest-data-status">尚未加载</span>
+            </div>
+            <div class="quest-file-controls">
+                <label>武器</label>
+                <select id="questWeaponFileSelect" class="theme-select"></select>
+                <button id="questWeaponLoadBtn" class="action-btn tiny" data-type="weapon">加载</button>
+                <button id="questWeaponPickBtn" class="action-btn tiny secondary" data-type="weapon">选择文件</button>
+                <span id="questWeaponStatus" class="quest-data-status">尚未加载</span>
+            </div>
+            <div class="quest-file-controls">
+                <label>防具</label>
+                <select id="questArmorFileSelect" class="theme-select"></select>
+                <button id="questArmorLoadBtn" class="action-btn tiny" data-type="armor">加载</button>
+                <button id="questArmorPickBtn" class="action-btn tiny secondary" data-type="armor">选择文件</button>
+                <span id="questArmorStatus" class="quest-data-status">尚未加载</span>
+            </div>
+            <div class="quest-file-controls">
+                <label>敌人</label>
+                <select id="questEnemyFileSelect" class="theme-select"></select>
+                <button id="questEnemyLoadBtn" class="action-btn tiny" data-type="enemy">加载</button>
+                <button id="questEnemyPickBtn" class="action-btn tiny secondary" data-type="enemy">选择文件</button>
+                <span id="questEnemyStatus" class="quest-data-status">尚未加载</span>
+            </div>
+            <div class="quest-file-controls">
+                <label>角色</label>
+                <select id="questActorFileSelect" class="theme-select"></select>
+                <button id="questActorLoadBtn" class="action-btn tiny" data-type="actor">加载</button>
+                <button id="questActorPickBtn" class="action-btn tiny secondary" data-type="actor">选择文件</button>
+                <span id="questActorStatus" class="quest-data-status">尚未加载</span>
+            </div>
+        </div>
+
+        <div class="quest-header">
+            <div class="quest-title">
+                <label>任务标题</label>
+                <input id="questTitleInput" type="text" placeholder="任务标题">
+            </div>
+            <div class="quest-giver">
+                <label>发布者</label>
+                <input id="questGiverInput" type="text" placeholder="NPC 名称">
+            </div>
+            <div class="quest-flags">
+                <label><input id="questCategoryInput" type="checkbox" checked> 主线任务</label>
+                <label><input id="questRepeatableInput" type="checkbox"> 可重复</label>
+            </div>
+            <div class="quest-difficulty">
+                <label>难度</label>
+                <select id="questDifficultySelect" class="theme-select"></select>
+            </div>
+        </div>
+
+        <div class="quest-grid">
+            <div class="quest-section">
+                <div class="section-title">简介</div>
+                <textarea id="questDescriptionInput" rows="3" placeholder="每行一条简介，将写入 description 数组"></textarea>
+            </div>
+
+            <div class="quest-section">
+                <div class="section-title">开始自动开关</div>
+                <div id="questStartSwitchList" class="mini-list"></div>
+                <button id="questAddStartSwitchBtn" class="action-btn tiny">添加开关</button>
+            </div>
+
+            <div class="quest-section">
+                <div class="section-title">开始自动变量</div>
+                <div id="questStartVariableList" class="mini-list"></div>
+                <button id="questAddStartVariableBtn" class="action-btn tiny">添加变量</button>
+            </div>
+
+            <div class="quest-section">
+                <div class="section-title">完成自动开关</div>
+                <div id="questFinishSwitchList" class="mini-list"></div>
+                <button id="questAddFinishSwitchBtn" class="action-btn tiny">添加开关</button>
+            </div>
+
+            <div class="quest-section">
+                <div class="section-title">完成自动变量</div>
+                <div id="questFinishVariableList" class="mini-list"></div>
+                <button id="questAddFinishVariableBtn" class="action-btn tiny">添加变量</button>
+            </div>
+
+            <div class="quest-section">
+                <div class="section-title">领取需求</div>
+                <div id="questRequirementList" class="quest-card-list"></div>
+                <button id="questAddRequirementBtn" class="action-btn tiny">添加需求</button>
+            </div>
+
+            <div class="quest-section">
+                <div class="section-title">任务目标</div>
+                <div id="questObjectiveList" class="quest-card-list"></div>
+                <button id="questAddObjectiveBtn" class="action-btn tiny">添加目标</button>
+            </div>
+
+            <div class="quest-section">
+                <div class="section-title">任务奖励</div>
+                <div id="questRewardList" class="quest-card-list"></div>
+                <button id="questAddRewardBtn" class="action-btn tiny">添加奖励</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 复制任务选择弹窗 -->
+    <div id="questCopyDialog" class="quest-copy-dialog hidden">
+        <div class="quest-copy-dialog-content">
+            <div class="quest-copy-dialog-header">
+                <h3>选择要复制的任务</h3>
+                <button id="questCopyDialogClose" class="icon-btn mini-row-remove" title="关闭">×</button>
+            </div>
+            <div class="quest-copy-dialog-body" id="questCopyDialogList"></div>
+            <div class="quest-copy-dialog-footer">
+                <button id="questCopyDialogConfirm" class="action-btn">复制选中</button>
+                <button id="questCopyDialogCancel" class="action-btn secondary">取消</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<template id="quest-switch-row">
+    <div class="mini-row">
+        <select class="switch-select theme-select"></select>
+        <select class="switch-value theme-select">
+            <option value="true">开启</option>
+            <option value="false">关闭</option>
+        </select>
+        <button class="icon-btn mini-row-remove" title="删除">×</button>
+    </div>
+</template>
+
+<template id="quest-variable-row">
+    <div class="mini-row">
+        <select class="variable-select theme-select"></select>
+        <input type="number" class="variable-value theme-input" value="0">
+        <button class="icon-btn mini-row-remove" title="删除">×</button>
+    </div>
+</template>
+
+<template id="quest-requirement-card">
+    <div class="quest-card">
+        <div class="quest-card-header">
+            <select class="req-type theme-select"></select>
+            <button class="icon-btn remove-card" title="删除">×</button>
+        </div>
+        <div class="quest-card-grid req-grid"></div>
+    </div>
+</template>
+
+<template id="quest-objective-card">
+    <div class="quest-card">
+        <div class="quest-card-header">
+            <select class="obj-type theme-select"></select>
+            <label class="checkbox">
+                <input type="checkbox" class="obj-calc-type" checked>
+                累计获取
+            </label>
+            <button class="icon-btn remove-card" title="删除">×</button>
+        </div>
+        <div class="quest-card-grid obj-grid"></div>
+        <div class="quest-card-actions">
+            <div class="mini-group">
+                <div class="mini-header">
+                    <span>完成后开关</span>
+                    <button type="button" class="mini-add obj-switch-add">+</button>
+                </div>
+                <div class="mini-list obj-switch-list" data-obj-list="switches"></div>
+            </div>
+            <div class="mini-group">
+                <div class="mini-header">
+                    <span>完成后变量</span>
+                    <button type="button" class="mini-add obj-variable-add">+</button>
+                </div>
+                <div class="mini-list obj-variable-list" data-obj-list="variables"></div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<template id="quest-reward-card">
+    <div class="quest-card">
+        <div class="quest-card-header">
+            <select class="rew-type theme-select"></select>
+            <button class="icon-btn remove-card" title="删除">×</button>
+        </div>
+        <div class="quest-card-grid rew-grid"></div>
+    </div>
+</template>

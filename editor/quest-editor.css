@@ -1,0 +1,329 @@
+.quest-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #252530;
+    color: #e0e0e0;
+    overflow: auto;
+    min-height: 0;
+    height: calc(100vh - 48px);
+    max-height: calc(100vh - 48px);
+    position: relative;
+}
+
+.quest-editor {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    gap: 12px;
+    flex: 1;
+    overflow: auto;
+}
+
+.quest-copy-dialog {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.quest-copy-dialog.hidden {
+    display: none;
+}
+
+.quest-copy-dialog-content {
+    background: #2b2f3c;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    width: 420px;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.quest-copy-dialog-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.quest-copy-dialog-body {
+    padding: 12px 16px;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.quest-copy-item {
+    padding: 10px 12px;
+    background: #303845;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.quest-copy-item:hover {
+    border-color: #5ad4e6;
+}
+
+.quest-copy-item.active {
+    border-color: #5ad4e6;
+    background: rgba(90, 212, 230, 0.12);
+}
+
+.quest-copy-item .title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.quest-copy-item .meta {
+    font-size: 12px;
+    color: #9fa5b3;
+}
+
+.quest-copy-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.quest-main {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px 18px 20px;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+#questModePanel {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+    padding: 8px;
+    position: relative;
+}
+
+#questDifficultySelect {
+    min-width: 120px;
+}
+
+.quest-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quest-header {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 0.8fr;
+    gap: 12px;
+    align-items: center;
+}
+
+.quest-file-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.quest-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.quest-grid .quest-section {
+    margin: 0;
+}
+
+.quest-file-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.quest-file-controls label {
+    font-size: 12px;
+    color: #9fa5b3;
+    margin-right: 4px;
+}
+
+.quest-file-controls select {
+    min-width: 160px;
+}
+
+.quest-data-status {
+    font-size: 12px;
+    color: #9fa5b3;
+    min-width: 80px;
+}
+
+.quest-header label {
+    display: block;
+    font-size: 12px;
+    color: #9fa5b3;
+    margin-bottom: 4px;
+}
+
+.quest-flags {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.quest-section {
+    background: #2b2f3c;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quest-section.two-col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+}
+
+.section-title {
+    font-weight: 600;
+    color: #d7def0;
+    border-left: 3px solid #5ad4e6;
+    padding-left: 8px;
+}
+
+.mini-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mini-row {
+    display: grid;
+    grid-template-columns: 1fr 120px 32px;
+    gap: 8px;
+    align-items: center;
+}
+
+.icon-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #363b4a;
+    color: #e8e8ef;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.icon-btn:hover {
+    border-color: #5ad4e6;
+    background: rgba(90, 212, 230, 0.12);
+}
+
+.quest-card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quest-card {
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: #303545;
+    border-radius: 10px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quest-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: space-between;
+}
+
+.quest-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+}
+
+.quest-card-grid label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #9fa5b3;
+}
+
+.quest-card-grid input,
+.quest-card-grid select,
+.quest-card-grid textarea {
+    width: 100%;
+}
+
+.quest-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: auto;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.quest-status-text {
+    color: #9fa5b3;
+}
+
+.action-btn.tiny {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.action-btn.secondary {
+    background: rgba(90, 212, 230, 0.12);
+    border: 1px solid #5ad4e6;
+    color: #e8e8ef;
+}
+
+.action-btn.danger {
+    background: rgba(255, 87, 87, 0.12);
+    border: 1px solid #ff5757;
+    color: #ffb3b3;
+}
+
+.quest-card .checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #cfd5e7;
+}
+
+.quest-card textarea {
+    min-height: 60px;
+}
+
