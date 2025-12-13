@@ -460,34 +460,42 @@
             select.appendChild(frag);
         }
 
+        function shouldUpdateMiniSelect(select) {
+            const field = select.dataset.switchField || select.dataset.variableField || '';
+            const isIdField = field === 'switchId' || field === 'variableId';
+            const isValueOrOp = field === 'value' || field === 'op';
+            const hasClassMatch = select.classList.contains('switch-select') || select.classList.contains('variable-select');
+            return !isValueOrOp && (hasClassMatch || isIdField);
+        }
+
+        function fillMiniSelectOptions(select, options, pool) {
+            const current = select.value;
+            recycleOptions(select);
+            const frag = document.createDocumentFragment();
+            for (let j = 1; j < options.length; j++) {
+                const o = options[j];
+                if (!o) continue;
+                const optionObj = pool.get();
+                bindPoolItem(optionObj.element, optionObj);
+                optionObj.element.value = `${j}`;
+                optionObj.element.textContent = typeof o === 'string' ? o : (o.name || o.label || `${j}`);
+                frag.appendChild(optionObj.element);
+            }
+            select.appendChild(frag);
+            if (current) {
+                select.value = current;
+            }
+        }
+
         function updateMiniSelectOptions(target, options) {
             if (!target || !Array.isArray(options)) return;
             const pool = getOptionPool();
-            const applyOptions = (select) => {
-                const current = select.value;
-                recycleOptions(select);
-                const frag = document.createDocumentFragment();
-                for (let j = 1; j < options.length; j++) {
-                    const o = options[j];
-                    if (!o) continue;
-                    const optionObj = pool.get();
-                    bindPoolItem(optionObj.element, optionObj);
-                    optionObj.element.value = `${j}`;
-                    optionObj.element.textContent = typeof o === 'string' ? o : (o.name || o.label || `${j}`);
-                    frag.appendChild(optionObj.element);
-                }
-                select.appendChild(frag);
-                if (current) {
-                    select.value = current;
-                }
-            };
-            if (target.tagName === 'SELECT') {
-                applyOptions(target);
-                return;
-            }
-            const selects = target.querySelectorAll('select');
+            const selects = target.tagName === 'SELECT' ? [target] : target.querySelectorAll('select');
             for (let i = 0; i < selects.length; i++) {
-                applyOptions(selects[i]);
+                const select = selects[i];
+                if (shouldUpdateMiniSelect(select)) {
+                    fillMiniSelectOptions(select, options, pool);
+                }
             }
         }
 
@@ -595,7 +603,7 @@
                 select.appendChild(optionFrag);
                 const fallbackId = switches.length > 1 ? 1 : 0;
                 select.value = row.switchId != null ? row.switchId : fallbackId;
-                valueSelect.value = `${row.value != null ? row.value : false}`;
+                valueSelect.value = row.value != null ? `${row.value}` : 'true';
                 select.dataset.switchField = 'switchId';
                 valueSelect.dataset.switchField = 'value';
                 frag.appendChild(node);
@@ -998,7 +1006,7 @@
                 appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
             } else if (type === 6) {
                 appendQuestField(grid, '开关', createDataSelect(state.system.switches, req.switchId ?? 1, 'switchId', 'req'), 'reqField', 'switchId');
-                const boolSelect = createSelect([{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }], `${req.targetValue ?? 'true'}`);
+                const boolSelect = createBoolSelect(req.targetValue, 'reqField', 'targetValue');
                 appendQuestField(grid, '目标值', boolSelect, 'reqField', 'targetValue');
             } else if (type === 7) {
                 appendQuestField(grid, '变量', createDataSelect(state.system.variables, req.variableId ?? 1, 'variableId', 'req'), 'reqField', 'variableId');
@@ -1027,9 +1035,9 @@
             } else if (type === 4) {
                 appendQuestField(grid, '防具', createDataSelect(state.system.armors, obj.armorId ?? 1, 'armorId', 'obj'), 'objField', 'armorId');
             } else if (type === 5) {
-                appendQuestField(grid, '开关', createDataSelect(state.system.switches, obj.switchId ?? 1, 'switchId', 'obj'), 'objField', 'switchId');
-                const boolSelect = createSelect([{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }], `${obj.targetValue ?? 'true'}`);
-                boolSelect.dataset.objField = 'targetValue';
+                const switchSelect = createSwitchSelect(state.system.switches, obj.switchId ?? 1, 'switchId', 'obj');
+                const boolSelect = createBoolSelect(obj.targetValue, 'objField', 'targetValue');
+                appendQuestField(grid, '开关', switchSelect, 'objField', 'switchId');
                 appendQuestField(grid, '目标值', boolSelect, 'objField', 'targetValue');
             } else if (type === 6) {
                 appendQuestField(grid, '变量', createDataSelect(state.system.variables, obj.variableId ?? 1, 'variableId', 'obj'), 'objField', 'variableId');
@@ -1049,12 +1057,14 @@
             } else if (type === 3) {
                 appendQuestField(grid, '防具', createDataSelect(state.system.armors, rew.armorId ?? 1, 'armorId', 'rew'), 'rewField', 'armorId');
             } else if (type === 6) {
-                appendQuestField(grid, '开关', createDataSelect(state.system.switches, rew.switchId ?? 1, 'switchId', 'rew'), 'rewField', 'switchId');
-                const boolSelect = createSelect([{ value: 'true', label: 'true' }, { value: 'false', label: 'false' }], `${rew.targetValue ?? 'true'}`);
-                boolSelect.dataset.rewField = 'targetValue';
+                const switchSelect = createSwitchSelect(state.system.switches, rew.switchId ?? 1, 'switchId', 'rew');
+                const boolSelect = createBoolSelect(rew.targetValue, 'rewField', 'targetValue');
+                appendQuestField(grid, '开关', switchSelect, 'rewField', 'switchId');
                 appendQuestField(grid, '值', boolSelect, 'rewField', 'targetValue');
             } else if (type === 7) {
                 appendQuestField(grid, '变量', createDataSelect(state.system.variables, rew.variableId ?? 1, 'variableId', 'rew'), 'rewField', 'variableId');
+                const opSelect = createOperatorSelect(rew.op || '=');
+                appendQuestField(grid, '运算', opSelect, 'rewField', 'op');
             }
             if (type !== 6 || type === 7) {
                 appendQuestField(grid, '数量/值', createNumberInput(rew.targetValue ?? 1, 'targetValue', 'rew'), 'rewField', 'targetValue');
@@ -1108,11 +1118,61 @@
                 const optionObj = pool.get();
                 bindPoolItem(optionObj.element, optionObj);
                 optionObj.element.value = `${i}`;
-                optionObj.element.textContent = d.name;
+                optionObj.element.textContent = typeof d === 'string' ? d : (d.name || d.label || `${i}`);
                 frag.appendChild(optionObj.element);
             }
             sel.appendChild(frag);
             sel.value = value;
+            return sel;
+        }
+
+        function createSwitchSelect(list, value, field, scope) {
+            const select = createDataSelect(list, value, field, scope);
+            return select;
+        }
+
+        function createBoolSelect(current, datasetKey, fieldName) {
+            const selectObj = getSelectPool().get();
+            const sel = selectObj.element;
+            bindPoolItem(sel, selectObj);
+            sel.className = 'theme-select';
+            if (datasetKey && fieldName) {
+                sel.dataset[datasetKey] = fieldName;
+            }
+            recycleOptions(sel);
+            const pool = getOptionPool();
+            const frag = document.createDocumentFragment();
+            const trueOpt = pool.get();
+            bindPoolItem(trueOpt.element, trueOpt);
+            trueOpt.element.value = 'true';
+            trueOpt.element.textContent = '开启';
+            frag.appendChild(trueOpt.element);
+            const falseOpt = pool.get();
+            bindPoolItem(falseOpt.element, falseOpt);
+            falseOpt.element.value = 'false';
+            falseOpt.element.textContent = '关闭';
+            frag.appendChild(falseOpt.element);
+            sel.appendChild(frag);
+            sel.value = current != null ? `${current}` : 'true';
+            return sel;
+        }
+        function createOperatorSelect(value) {
+            const selectObj = getSelectPool().get();
+            const sel = selectObj.element;
+            bindPoolItem(sel, selectObj);
+            sel.className = 'theme-select variable-op';
+            recycleOptions(sel);
+            const pool = getOptionPool();
+            const frag = document.createDocumentFragment();
+            for (let i = 0; i < ops.length; i++) {
+                const optionObj = pool.get();
+                bindPoolItem(optionObj.element, optionObj);
+                optionObj.element.value = ops[i];
+                optionObj.element.textContent = ops[i];
+                frag.appendChild(optionObj.element);
+            }
+            sel.appendChild(frag);
+            sel.value = value || '=';
             return sel;
         }
 
