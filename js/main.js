@@ -1042,7 +1042,9 @@
             } else if (type === 6) {
                 appendQuestField(grid, '变量', createDataSelect(state.system.variables, obj.variableId ?? 1, 'variableId', 'obj'), 'objField', 'variableId');
             }
-            appendQuestField(grid, '目标值', createNumberInput(obj.targetValue ?? 1, 'targetValue', 'obj'), 'objField', 'targetValue');
+            if (type !== 5) {
+                appendQuestField(grid, '目标值', createNumberInput(obj.targetValue ?? 1, 'targetValue', 'obj'), 'objField', 'targetValue');
+            }
             appendQuestField(grid, '比较符', opSelect, 'objField', 'operator');
             appendQuestField(grid, '描述', createTextInput(obj.description || '', 'description', 'obj'), 'objField', 'description');
         }
