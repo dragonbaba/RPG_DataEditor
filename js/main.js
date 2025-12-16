@@ -903,6 +903,10 @@
         }
 
         function handleObjectiveClick(e) {
+            const miniRemove = e.target.closest('.mini-row-remove');
+            if (miniRemove) {
+                if (removeObjectiveActionRow(miniRemove)) return;
+            }
             const remove = e.target.closest('.remove-card');
             if (remove) {
                 const idx = Number(remove.closest('.quest-card')?.dataset.index);
@@ -1059,12 +1063,16 @@
             } else if (type === 3) {
                 appendQuestField(grid, '防具', createDataSelect(state.system.armors, rew.armorId ?? 1, 'armorId', 'rew'), 'rewField', 'armorId');
             } else if (type === 6) {
-                const switchSelect = createSwitchSelect(state.system.switches, rew.switchId ?? 1, 'switchId', 'rew');
+                const fallbackSwitchId = state.system.switches.length > 1 ? 1 : 0;
+                if (rew.switchId == null) rew.switchId = fallbackSwitchId;
+                const switchSelect = createSwitchSelect(state.system.switches, rew.switchId, 'switchId', 'rew');
                 const boolSelect = createBoolSelect(rew.targetValue, 'rewField', 'targetValue');
                 appendQuestField(grid, '开关', switchSelect, 'rewField', 'switchId');
                 appendQuestField(grid, '值', boolSelect, 'rewField', 'targetValue');
             } else if (type === 7) {
-                appendQuestField(grid, '变量', createDataSelect(state.system.variables, rew.variableId ?? 1, 'variableId', 'rew'), 'rewField', 'variableId');
+                const fallbackVariableId = state.system.variables.length > 1 ? 1 : 0;
+                if (rew.variableId == null) rew.variableId = fallbackVariableId;
+                appendQuestField(grid, '变量', createDataSelect(state.system.variables, rew.variableId, 'variableId', 'rew'), 'rewField', 'variableId');
                 const opSelect = createOperatorSelect(rew.op || '=');
                 appendQuestField(grid, '运算', opSelect, 'rewField', 'op');
             }
@@ -1626,6 +1634,10 @@
             }
             if (field === 'operator' || field === 'description') {
                 rew[field] = target.value ?? '';
+                return;
+            }
+            if (field === 'op') {
+                rew.op = target.value || '=';
                 return;
             }
             if (field === 'targetValue' && target.tagName === 'SELECT') {
