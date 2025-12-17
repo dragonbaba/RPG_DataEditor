@@ -2174,3 +2174,11 @@ button:focus-visible {
     color: #999;
     font-size: 14px;
 }
+#saveCustomPropertyBtn{
+    width: auto;
+    max-width: 220px;
+    align-self: flex-start;
+    padding: 6px 14px;
+    display: inline-flex;
+    justify-content: center;
+}

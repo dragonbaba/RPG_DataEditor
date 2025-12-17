@@ -110,6 +110,7 @@
         noteDescription: null,
         saveDescriptionBtn: null,
         emptyStatePanel: null,
+        saveCustomPropertyBtn: null,
 
         // 状态栏
         statusText: null,
@@ -162,6 +163,7 @@
             this.codeFilePath = document.getElementById('codeFilePath');
 
             this.savePropertiesBtn = document.getElementById('savePropertiesBtn');
+            this.saveCustomPropertyBtn = document.getElementById('saveCustomPropertyBtn');
             this.addCustomPropertyBtn = document.getElementById('addCustomPropertyBtn');
             this.saveCodeBtn = document.getElementById('saveCodeBtn');
             this.clearCodeBtn = document.getElementById('clearCodeBtn');
@@ -2452,6 +2454,24 @@
         if (DOM.savePropertiesBtn && !DOM.savePropertiesBtn.onclick) {
             DOM.savePropertiesBtn.onclick = savePropertyDefinition;
         }
+        if (!DOM.saveCustomPropertyBtn) {
+            // 动态创建自定义属性保存按钮，避免旧布局缺失
+            const btn = document.createElement('button');
+            btn.id = 'saveCustomPropertyBtn';
+            btn.className = 'save-btn';
+            // 缩短文案以保持按钮宽度
+            btn.textContent = '保存自定义';
+            const anchor = DOM.addCustomPropertyBtn || appState.customPropertyList;
+            if (anchor && anchor.parentNode) {
+                anchor.parentNode.insertBefore(btn, anchor.nextSibling);
+            } else if (DOM.propertyModePanel) {
+                DOM.propertyModePanel.appendChild(btn);
+            }
+            DOM.saveCustomPropertyBtn = btn;
+        }
+        if (DOM.saveCustomPropertyBtn && !DOM.saveCustomPropertyBtn.onclick) {
+            DOM.saveCustomPropertyBtn.onclick = saveCustomProperties;
+        }
         if (DOM.addCustomPropertyBtn && !DOM.addCustomPropertyBtn.onclick) {
             DOM.addCustomPropertyBtn.onclick = () => addCustomPropertyRow();
         }
@@ -4367,7 +4387,7 @@
 
     // ===== 属性面板状态管理函数 =====
     //统一管理属性面板的输入状态，提高代码复用性
-    function setPropertyPanelInputsState(disabled, clearValues = false) {
+    function setPropertyPanelInputsState(disabled, clearValues = false, customDisabled = disabled) {
         const attributeInputs = appState.attributeInputs;
         for (const key in attributeInputs) {
             const input = attributeInputs[key];
@@ -4390,10 +4410,11 @@
         }
         if (appState.customPropertyList) {
             const inputs = appState.customPropertyList.querySelectorAll('input');
-            DisabledManager.applyBatch(inputs, disabled);
+            DisabledManager.applyBatch(inputs, customDisabled);
         }
         DisabledManager.apply(DOM.savePropertiesBtn, disabled);
-        DisabledManager.apply(DOM.addCustomPropertyBtn, disabled);
+        DisabledManager.apply(DOM.addCustomPropertyBtn, customDisabled);
+        DisabledManager.apply(DOM.saveCustomPropertyBtn, customDisabled);
     }
 
     // ===== Note元数据提取器 =====
@@ -4570,30 +4591,14 @@
                 appState.customPropertyList.appendChild(emptyHint);
             }
             // 清空并禁用所有输入
-            setPropertyPanelInputsState(true, true);
+            setPropertyPanelInputsState(true, true, true);
             return;
         }
         const currentItem = appState.currentItem;
-        //数据验证：检查是否可以编辑属性
-        const canEdit = canEditNoteOrProperty(currentItem);
-        if (!canEdit) {
-            if (appState.propertyStatusElement) {
-                appState.propertyStatusElement.textContent = `当前项目: ${currentItem.name || '未命名'} (ID: ${currentItem.id || appState.currentItemIndex || '-'}) - 该项目没有note或params属性，无法编辑`;
-            }
-            if (appState.customPropertyList) {
-                appState.customPropertyList.innerHTML = '';
-                const emptyHint = document.createElement('div');
-                emptyHint.className = 'custom-empty';
-                emptyHint.textContent = '该项目没有note或params属性，无法编辑';
-                appState.customPropertyList.appendChild(emptyHint);
-            }
-            // 禁用所有输入并清空值
-            setPropertyPanelInputsState(true, true);
-            return;
-        }
+        const hasParams = Object.hasOwn(currentItem, 'params');
 
         if (appState.propertyStatusElement) {
-            appState.propertyStatusElement.textContent = `当前项目: ${currentItem.name || '未命名'} (ID: ${currentItem.id || appState.currentItemIndex || '-'})`;
+            appState.propertyStatusElement.textContent = `当前项目: ${currentItem.name || '未命名'} (ID: ${currentItem.id || appState.currentItemIndex || '-'})${hasParams ? '' : ' - 无 params，基础属性不可编辑'}`;
         }
 
         const params = Array.isArray(currentItem.params) ? currentItem.params : [];
@@ -4601,7 +4606,7 @@
             const attr = baseAttributes[i];
             const input = appState.attributeInputs[attr.key];
             if (input) {
-                input.value = params[i] ?? '';
+                input.value = hasParams ? (params[i] ?? '') : '';
             }
         }
 
@@ -4610,7 +4615,7 @@
             const attr = baseAttributes[i];
             const input = appState.attributeFloatInputs[attr.key];
             if (input) {
-                input.value = floatParams[i] ?? '';
+                input.value = hasParams ? (floatParams[i] ?? '') : '';
             }
         }
         if (appState.customPropertyList) {
@@ -4650,7 +4655,8 @@
                 }
             }
         }
-        updatePropertyPanelState();
+        // 基础属性可编辑性取决于 params 是否存在；自定义属性只在无选中项时禁用
+        updatePropertyPanelState(hasParams);
     }
 
     function addCustomPropertyRow(name = '', value = '', symbol = '', floatValue = '') {
@@ -4732,10 +4738,63 @@
         }
     }
 
-    function updatePropertyPanelState() {
-        const disabled = !appState.currentItem;
-        // 复用统一的状态管理函数
-        setPropertyPanelInputsState(disabled, false);
+    function updatePropertyPanelState(hasParamsOverride = null) {
+        const hasItem = !!appState.currentItem;
+        const hasParams = hasParamsOverride !== null ? hasParamsOverride : (hasItem && Object.hasOwn(appState.currentItem, 'params'));
+        const baseDisabled = !hasItem || !hasParams;
+        const customDisabled = !hasItem;
+        setPropertyPanelInputsState(baseDisabled, false, customDisabled);
+    }
+
+    function collectCustomParams() {
+        const customRows = appState.customPropertyList ? Array.from(appState.customPropertyList.querySelectorAll('.custom-attribute-card')) : Array.empty;
+        const customParams = {};
+        for (let i = 0; i < customRows.length; i++) {
+            const row = customRows[i];
+            const nameInput = row.querySelector('.custom-attribute-name');
+            const valueInput = row.querySelector('.custom-attribute-value');
+            const symbolInput = row.querySelector('.custom-attribute-symbol');
+            const floatInput = row.querySelector('.custom-attribute-float');
+            if (!nameInput || !nameInput.value.trim()) {
+                continue;
+            }
+            const name = nameInput.value.trim();
+            const rawValue = valueInput ? valueInput.value.trim() : '';
+            const parsedValue = rawValue === '' ? 0 : parseInt(rawValue, 10);
+            if (rawValue !== '' && Number.isNaN(parsedValue)) {
+                showError('自定义属性值必须是整数');
+                return null;
+            }
+            const rawFloat = floatInput ? floatInput.value.trim() : '';
+            const parsedFloat = rawFloat === '' ? 0 : parseFloat(rawFloat);
+            if (rawFloat !== '' && Number.isNaN(parsedFloat)) {
+                showError('自定义属性的波动值必须是数字');
+                return null;
+            }
+            const symbol = symbolInput ? symbolInput.value.trim() : '';
+            customParams[name] = {
+                value: parsedValue,
+                floatValue: parsedFloat,
+                symbol
+            };
+        }
+        return customParams;
+    }
+
+    async function persistCurrentItem(saveMessage, successMessage) {
+        const currentItem = appState.currentItem;
+        appState.currentData[appState.currentItemIndex] = currentItem;
+        showLoading(true, saveMessage);
+        try {
+            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2), 'utf-8');
+            updateFileCache();
+            updateStatus(successMessage);
+            renderPropertyPanel();
+        } catch (error) {
+            showError(successMessage.replace('成功', '失败') + ' ' + error.message);
+        } finally {
+            showLoading(false);
+        }
     }
 
     async function savePropertyDefinition() {
@@ -4743,9 +4802,8 @@
             showError('请先选择文件和项目');
             return;
         }
-        //数据验证：检查是否可以编辑属性
-        if (!canEditNoteOrProperty(appState.currentItem)) {
-            showError('该项目没有note或params属性，无法编辑属性');
+        if (!Object.hasOwn(appState.currentItem, 'params')) {
+            showError('该项目没有 params，基础属性不可编辑');
             return;
         }
         const currentItem = appState.currentItem;
@@ -4783,60 +4841,27 @@
             floatParams[i] = parsed;
         }
 
-        const customRows = appState.customPropertyList ? Array.from(appState.customPropertyList.querySelectorAll('.custom-attribute-card')) : Array.empty;
-        const customParams = currentItem.customParams ?? {};
-        for (let i = 0; i < customRows.length; i++) {
-            const row = customRows[i];
-            const nameInput = row.querySelector('.custom-attribute-name');
-            const valueInput = row.querySelector('.custom-attribute-value');
-            const symbolInput = row.querySelector('.custom-attribute-symbol');
-            const floatInput = row.querySelector('.custom-attribute-float');
-            if (!nameInput || !nameInput.value.trim()) {
-                continue;
-            }
-            const name = nameInput.value.trim();
-            const rawValue = valueInput?.value.trim() ?? '';
-            const parsedValue = rawValue === '' ? 0 : parseInt(rawValue, 10);
-            if (rawValue !== '' && Number.isNaN(parsedValue)) {
-                showError('自定义属性值必须是整数');
-                return;
-            }
-            const rawFloat = floatInput?.value.trim() ?? '';
-            const parsedFloat = rawFloat === '' ? 0 : parseFloat(rawFloat);
-            if (rawFloat !== '' && Number.isNaN(parsedFloat)) {
-                showError('自定义属性的波动值必须是数字');
-                return;
-            }
-            const symbol = symbolInput?.value.trim() || '';
-            customParams[name] = {
-                value: parsedValue,
-                floatValue: parsedFloat,
-                symbol
-            };
-        }
-
         currentItem.params = params;
         currentItem.floatParams = floatParams;
+        await persistCurrentItem('保存属性定义中...', '✔ 属性定义已保存');
+    }
+
+    async function saveCustomProperties() {
+        if (!appState.currentItem || appState.currentItemIndex === null || !appState.currentFilePath) {
+            showError('请先选择文件和项目');
+            return;
+        }
+        const customParams = collectCustomParams();
+        if (customParams === null) return;
+        const currentItem = appState.currentItem;
         currentItem.customParams = customParams;
         if (currentItem.customAttributes) {
             delete currentItem.customAttributes;
         }
-        appState.currentData[appState.currentItemIndex] = currentItem;
-        showLoading(true, '保存属性定义...');
-        try {
-            await electronAPI.writeFile(appState.currentFilePath, JSON.stringify(appState.currentData, null, 2), 'utf-8');
-            // 保存成功后更新缓存
-            updateFileCache();
-            updateStatus('✅ 属性定义已保存');
-            renderPropertyPanel();
-        } catch (error) {
-            showError('保存属性失败: ' + error.message);
-        } finally {
-            showLoading(false);
-        }
+        await persistCurrentItem('保存自定义属性中...', '✔ 自定义属性已保存');
     }
 
-    // ===== 历史文件列表对话框 =====
+    // ===== 历史文件列表对话框 =====// ===== 历史文件列表对话框 =====
     // 使用对象池管理历史文件列表项
     class HistoryFileItem {
         constructor() {
