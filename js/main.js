@@ -999,23 +999,28 @@
                 questSelect.value = req.questId ?? 0;
                 appendQuestField(grid, '前置任务', questSelect, 'reqField', 'questId');
             } else if (type === 3) {
-                appendQuestField(grid, '物品', createDataSelect(state.system.items, req.itemId ?? 1, 'itemId', 'req'), 'reqField', 'itemId');
+                const itemId = ensureDataId(req, 'itemId', state.system.items);
+                appendQuestField(grid, '物品', createDataSelect(state.system.items, itemId, 'itemId', 'req'), 'reqField', 'itemId');
                 appendQuestField(grid, '数量/值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
                 appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
             } else if (type === 4) {
-                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, req.weaponId ?? 1, 'weaponId', 'req'), 'reqField', 'weaponId');
+                const weaponId = ensureDataId(req, 'weaponId', state.system.weapons);
+                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, weaponId, 'weaponId', 'req'), 'reqField', 'weaponId');
                 appendQuestField(grid, '数量/值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
                 appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
             } else if (type === 5) {
-                appendQuestField(grid, '防具', createDataSelect(state.system.armors, req.armorId ?? 1, 'armorId', 'req'), 'reqField', 'armorId');
+                const armorId = ensureDataId(req, 'armorId', state.system.armors);
+                appendQuestField(grid, '防具', createDataSelect(state.system.armors, armorId, 'armorId', 'req'), 'reqField', 'armorId');
                 appendQuestField(grid, '数量/值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
                 appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
             } else if (type === 6) {
-                appendQuestField(grid, '开关', createDataSelect(state.system.switches, req.switchId ?? 1, 'switchId', 'req'), 'reqField', 'switchId');
-                const boolSelect = createBoolSelect(req.targetValue, 'reqField', 'targetValue');
+                const switchId = ensureDataId(req, 'switchId', state.system.switches);
+                appendQuestField(grid, '开关', createDataSelect(state.system.switches, switchId, 'switchId', 'req'), 'reqField', 'switchId');
+                const boolSelect = createBoolSelect(ensureBoolValue(req, 'targetValue', true), 'reqField', 'targetValue');
                 appendQuestField(grid, '目标值', boolSelect, 'reqField', 'targetValue');
             } else if (type === 7) {
-                appendQuestField(grid, '变量', createDataSelect(state.system.variables, req.variableId ?? 1, 'variableId', 'req'), 'reqField', 'variableId');
+                const variableId = ensureDataId(req, 'variableId', state.system.variables);
+                appendQuestField(grid, '变量', createDataSelect(state.system.variables, variableId, 'variableId', 'req'), 'reqField', 'variableId');
                 appendQuestField(grid, '目标值', createNumberInput(req.targetValue ?? 1, 'targetValue', 'req'), 'reqField', 'targetValue');
                 appendQuestField(grid, '比较符', opSelect, 'reqField', 'operator');
             } else if (type === 8) {
@@ -1033,20 +1038,26 @@
             const opSelect = createSelect(QUEST_OPERATORS, obj.operator || '>=');
             opSelect.dataset.objField = 'operator';
             if (type === 1) {
-                appendQuestField(grid, '敌人', createDataSelect(state.system.enemies, obj.enemyId ?? 1, 'enemyId', 'obj'), 'objField', 'enemyId');
+                const enemyId = ensureDataId(obj, 'enemyId', state.system.enemies);
+                appendQuestField(grid, '敌人', createDataSelect(state.system.enemies, enemyId, 'enemyId', 'obj'), 'objField', 'enemyId');
             } else if (type === 2) {
-                appendQuestField(grid, '物品', createDataSelect(state.system.items, obj.itemId ?? 1, 'itemId', 'obj'), 'objField', 'itemId');
+                const itemId = ensureDataId(obj, 'itemId', state.system.items);
+                appendQuestField(grid, '物品', createDataSelect(state.system.items, itemId, 'itemId', 'obj'), 'objField', 'itemId');
             } else if (type === 3) {
-                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, obj.weaponId ?? 1, 'weaponId', 'obj'), 'objField', 'weaponId');
+                const weaponId = ensureDataId(obj, 'weaponId', state.system.weapons);
+                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, weaponId, 'weaponId', 'obj'), 'objField', 'weaponId');
             } else if (type === 4) {
-                appendQuestField(grid, '防具', createDataSelect(state.system.armors, obj.armorId ?? 1, 'armorId', 'obj'), 'objField', 'armorId');
+                const armorId = ensureDataId(obj, 'armorId', state.system.armors);
+                appendQuestField(grid, '防具', createDataSelect(state.system.armors, armorId, 'armorId', 'obj'), 'objField', 'armorId');
             } else if (type === 5) {
-                const switchSelect = createSwitchSelect(state.system.switches, obj.switchId ?? 1, 'switchId', 'obj');
-                const boolSelect = createBoolSelect(obj.targetValue, 'objField', 'targetValue');
+                const switchId = ensureDataId(obj, 'switchId', state.system.switches);
+                const switchSelect = createSwitchSelect(state.system.switches, switchId, 'switchId', 'obj');
+                const boolSelect = createBoolSelect(ensureBoolValue(obj, 'targetValue', true), 'objField', 'targetValue');
                 appendQuestField(grid, '开关', switchSelect, 'objField', 'switchId');
                 appendQuestField(grid, '目标值', boolSelect, 'objField', 'targetValue');
             } else if (type === 6) {
-                appendQuestField(grid, '变量', createDataSelect(state.system.variables, obj.variableId ?? 1, 'variableId', 'obj'), 'objField', 'variableId');
+                const variableId = ensureDataId(obj, 'variableId', state.system.variables);
+                appendQuestField(grid, '变量', createDataSelect(state.system.variables, variableId, 'variableId', 'obj'), 'objField', 'variableId');
             }
             if (type !== 5) {
                 appendQuestField(grid, '目标值', createNumberInput(obj.targetValue ?? 1, 'targetValue', 'obj'), 'objField', 'targetValue');
@@ -1059,23 +1070,25 @@
             recyclePoolTree(grid);
             const type = rew.type ?? 1;
             if (type === 1) {
-                appendQuestField(grid, '物品', createDataSelect(state.system.items, rew.itemId ?? 1, 'itemId', 'rew'), 'rewField', 'itemId');
+                const itemId = ensureDataId(rew, 'itemId', state.system.items);
+                appendQuestField(grid, '物品', createDataSelect(state.system.items, itemId, 'itemId', 'rew'), 'rewField', 'itemId');
             } else if (type === 2) {
-                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, rew.weaponId ?? 1, 'weaponId', 'rew'), 'rewField', 'weaponId');
+                const weaponId = ensureDataId(rew, 'weaponId', state.system.weapons);
+                appendQuestField(grid, '武器', createDataSelect(state.system.weapons, weaponId, 'weaponId', 'rew'), 'rewField', 'weaponId');
             } else if (type === 3) {
-                appendQuestField(grid, '防具', createDataSelect(state.system.armors, rew.armorId ?? 1, 'armorId', 'rew'), 'rewField', 'armorId');
+                const armorId = ensureDataId(rew, 'armorId', state.system.armors);
+                appendQuestField(grid, '防具', createDataSelect(state.system.armors, armorId, 'armorId', 'rew'), 'rewField', 'armorId');
             } else if (type === 6) {
-                const fallbackSwitchId = state.system.switches.length > 1 ? 1 : 0;
-                if (rew.switchId == null) rew.switchId = fallbackSwitchId;
-                const switchSelect = createSwitchSelect(state.system.switches, rew.switchId, 'switchId', 'rew');
-                const boolSelect = createBoolSelect(rew.targetValue, 'rewField', 'targetValue');
+                const switchId = ensureDataId(rew, 'switchId', state.system.switches);
+                const switchSelect = createSwitchSelect(state.system.switches, switchId, 'switchId', 'rew');
+                const boolSelect = createBoolSelect(ensureBoolValue(rew, 'targetValue', true), 'rewField', 'targetValue');
                 appendQuestField(grid, '开关', switchSelect, 'rewField', 'switchId');
                 appendQuestField(grid, '值', boolSelect, 'rewField', 'targetValue');
             } else if (type === 7) {
-                const fallbackVariableId = state.system.variables.length > 1 ? 1 : 0;
-                if (rew.variableId == null) rew.variableId = fallbackVariableId;
-                appendQuestField(grid, '变量', createDataSelect(state.system.variables, rew.variableId, 'variableId', 'rew'), 'rewField', 'variableId');
-                const opSelect = createOperatorSelect(rew.op || '=');
+                const variableId = ensureDataId(rew, 'variableId', state.system.variables);
+                appendQuestField(grid, '变量', createDataSelect(state.system.variables, variableId, 'variableId', 'rew'), 'rewField', 'variableId');
+                if (!rew.op) rew.op = '=';
+                const opSelect = createOperatorSelect(rew.op);
                 appendQuestField(grid, '运算', opSelect, 'rewField', 'op');
             }
             if (type !== 6 || type === 7) {
@@ -1136,6 +1149,20 @@
             sel.appendChild(frag);
             sel.value = value;
             return sel;
+        }
+
+        function ensureDataId(holder, key, list) {
+            if (holder[key] == null) {
+                holder[key] = list && list.length > 1 ? 1 : 0;
+            }
+            return holder[key];
+        }
+
+        function ensureBoolValue(holder, key, fallback) {
+            if (holder[key] == null) {
+                holder[key] = fallback;
+            }
+            return holder[key];
         }
 
         function createSwitchSelect(list, value, field, scope) {
