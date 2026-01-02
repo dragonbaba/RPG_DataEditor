@@ -1,0 +1,8 @@
+{
+  "theme": "dark",
+  "accent": "cyan",
+  "animations": true,
+  "fontSize": "large",
+  "compactMode": false,
+  "preset": "custom"
+}

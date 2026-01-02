@@ -1,17 +1,32 @@
 {
-  "name": "RPG-DATA-Editor",
+  "name": "rpg-data-editor",
   "version": "1.0.2",
   "description": "RM数据拓展编辑器 - 功能强大的JSON编辑工具，支持代码生成和自动链接管理",
-  "main": "outputjs/main.js",
+  "main": "dist-electron/main.js",
   "homepage": "./",
+  "type": "module",
   "scripts": {
-    "compile": "tsc",
-    "compile:watch": "tsc --watch",
-    "start": "cross-env NODE_ENV=development electron outputjs/main.js",
-    "dev": "cross-env NODE_ENV=development electron-builder --publish=never",
-    "build": "cross-env NODE_ENV=production electron-builder",
-    "deploy": "cross-env MODE=production electron-builder build --config .electron-builder.config.js",
-    "clean": "node -e \"require('fs').rmSync('./outputjs', { recursive: true, force: true })\""
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "electron:dev": "concurrently -k \"npm run dev\" \"npm run electron:start:dev\"",
+    "electron:start:dev": "wait-on tcp:5173 && npm run compile:main && cross-env NODE_ENV=development electron .",
+    "electron:build": "npm run build && npm run compile:main && electron-builder --config .electron-builder.config.cjs",
+    "electron:build:win": "npm run build && npm run compile:main && electron-builder --config .electron-builder.config.cjs --win",
+    "electron:build:mac": "npm run build && npm run compile:main && electron-builder --config .electron-builder.config.cjs --mac",
+    "electron:build:linux": "npm run build && npm run compile:main && electron-builder --config .electron-builder.config.cjs --linux",
+    "electron:build:all": "npm run build && npm run compile:main && electron-builder --config .electron-builder.config.cjs --win --mac --linux",
+    "electron:start": "npm run compile:main && cross-env NODE_ENV=development electron .",
+    "compile:main": "tsc -p tsconfig.electron.json && tsc -p tsconfig.preload.json && node -e \"require('fs').renameSync('dist-electron/preload.js', 'dist-electron/preload.cjs')\" && node -e \"if(require('fs').existsSync('dist-electron/preload.js.map')){require('fs').renameSync('dist-electron/preload.js.map', 'dist-electron/preload.cjs.map')}\"",
+    "compile:main:watch": "tsc -p tsconfig.electron.json --watch",
+    "clean": "node -e \"const fs = require('fs'); ['dist', 'dist-electron', 'release'].forEach(d => fs.rmSync(d, { recursive: true, force: true }))\"",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --run --coverage",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run compile:main",
+    "release": "node scripts/release.js"
   },
   "keywords": [
     "note",
@@ -20,31 +35,71 @@
     "json",
     "code-generator"
   ],
-  "author": "Zaun",
+  "author": "dragonbaba",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dragonbaba/RPG_DataEditor.git"
+  },
+  "homepage": "https://github.com/dragonbaba/RPG_DataEditor#readme",
+  "bugs": {
+    "url": "https://github.com/dragonbaba/RPG_DataEditor/issues"
+  },
   "build": {
     "appId": "com.ZaunPlugin.RPGDataEditor",
+    "productName": "RPG数据拓展编辑器",
     "files": [
       "dist/**/*",
-      "html/**/*",
-      "css/**/*",
+      "dist-electron/**/*",
       "js/**/*",
       "data/**/*",
-      "icon/**/*"
+      "icon/**/*",
+      "plugins/**/*"
     ],
     "directories": {
-      "buildResources": "icon"
+      "buildResources": "icon",
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "icon/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "icon/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "icon/icon.png"
     }
   },
   "devDependencies": {
-    "@types/node": "^24.10.1",
+    "@types/node": "^22.10.0",
     "asarmor": "^3.0.2",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
     "cross-env": "^7.0.3",
-    "electron": "^39.2.4",
+    "electron": "latest",
     "electron-builder": "^26.0.12",
-    "typescript": "^5.9.3"
+    "fast-check": "^4.5.2",
+    "jsdom": "^27.4.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "terser": "^5.44.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^4.0.16",
+    "wait-on": "^9.0.3"
   },
   "dependencies": {
-    "monaco-editor": "^0.55.1"
+    "electron-updater": "^6.6.2",
+    "monaco-editor": "^0.55.1",
+    "pixi.js": "^7.4.3"
   }
 }

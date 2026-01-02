@@ -1,0 +1,122 @@
+[
+  null,
+  {
+    "name": "主炮爆炸小",
+    "startAnimationId": 121,
+    "launchAnimation": {
+      "animationId": 129,
+      "segments": [
+        {
+          "targetX": 0,
+          "targetY": -120,
+          "duration": 40,
+          "easeX": "linear",
+          "easeY": "linear"
+        }
+      ]
+    },
+    "endAnimationId": 130
+  },
+  {
+    "name": "主炮爆炸中",
+    "startAnimationId": 121,
+    "launchAnimation": {
+      "animationId": 129,
+      "segments": [
+        {
+          "targetX": 0,
+          "targetY": -120,
+          "duration": 40,
+          "easeX": "linear",
+          "easeY": "linear"
+        }
+      ]
+    },
+    "endAnimationId": 131
+  },
+  {
+    "name": "主炮爆炸大",
+    "startAnimationId": 121,
+    "launchAnimation": {
+      "animationId": 129,
+      "segments": [
+        {
+          "targetX": 0,
+          "targetY": -120,
+          "duration": 40,
+          "easeX": "linear",
+          "easeY": "linear"
+        }
+      ]
+    },
+    "endAnimationId": 132
+  },
+  {
+    "name": "火焰发射",
+    "startAnimationId": 0,
+    "launchAnimation": {
+      "animationId": 118,
+      "segments": [
+        {
+          "targetX": 0,
+          "targetY": -120,
+          "duration": 40,
+          "easeX": "linear",
+          "easeY": "linear"
+        }
+      ]
+    },
+    "endAnimationId": 134
+  },
+  {
+    "name": "机枪攻击",
+    "startAnimationId": 120,
+    "launchAnimation": {
+      "animationId": 0,
+      "segments": [
+        {
+          "targetX": 0,
+          "targetY": -120,
+          "duration": 60,
+          "easeX": "linear",
+          "easeY": "linear"
+        }
+      ]
+    },
+    "endAnimationId": 123
+  },
+  {
+    "name": "托卢",
+    "startAnimationId": 121,
+    "launchAnimation": {
+      "animationId": 133,
+      "segments": [
+        {
+          "targetX": 0,
+          "targetY": -120,
+          "duration": 40,
+          "easeX": "linear",
+          "easeY": "linear"
+        }
+      ]
+    },
+    "endAnimationId": 132
+  },
+  {
+    "name": "弹弓",
+    "startAnimationId": 0,
+    "launchAnimation": {
+      "animationId": 122,
+      "segments": [
+        {
+          "targetX": 0,
+          "targetY": -120,
+          "duration": 40,
+          "easeX": "linear",
+          "easeY": "linear"
+        }
+      ]
+    },
+    "endAnimationId": 124
+  }
+]

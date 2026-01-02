@@ -1,0 +1,206 @@
+/**
+ * Performance-based CSS toggles
+ * Applied dynamically based on performance metrics
+ */
+
+/* Disable visual effects when performance is poor */
+.disable-visual-effects .glow-effect,
+.disable-visual-effects .hologram-effect,
+.disable-visual-effects .scanline-effect {
+  display: none !important;
+}
+
+.disable-visual-effects *[class*="glow"],
+.disable-visual-effects *[class*="hologram"],
+.disable-visual-effects *[class*="scanline"] {
+  box-shadow: none !important;
+  filter: none !important;
+  background-image: none !important;
+}
+
+/* Disable animations when performance is critical */
+.disable-animations *,
+.disable-animations *::before,
+.disable-animations *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+
+/* Disable particle effects */
+.disable-particle-effects .particle,
+.disable-particle-effects .particle-system,
+.disable-particle-effects *[class*="particle"] {
+  display: none !important;
+}
+
+/* Disable background effects */
+.disable-background-effects .background-effect,
+.disable-background-effects .background-animation,
+.disable-background-effects *[class*="background-effect"] {
+  display: none !important;
+}
+
+.disable-background-effects body::before,
+.disable-background-effects body::after {
+  display: none !important;
+}
+
+/* Disable transitions */
+.disable-transitions * {
+  transition: none !important;
+}
+
+/* Optimize transitions mode - simpler animations during panel switches */
+.optimize-transitions * {
+  animation-duration: 0.1s !important;
+  transition-duration: 0.1s !important;
+}
+
+.optimize-transitions .fade-in,
+.optimize-transitions .fade-out {
+  animation-duration: 0.05s !important;
+}
+
+/* Transition mode - minimal effects during panel transitions */
+.transition-mode .glow-effect,
+.transition-mode .hologram-effect {
+  opacity: 0.3 !important;
+}
+
+.transition-mode *[class*="glow"] {
+  box-shadow: none !important;
+}
+
+/* Performance indicator styles */
+.performance-indicator {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 10000;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.performance-indicator.optimal {
+  background: rgba(0, 255, 0, 0.2);
+  color: #00ff00;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+.performance-indicator.poor {
+  background: rgba(255, 255, 0, 0.2);
+  color: #ffff00;
+  border: 1px solid rgba(255, 255, 0, 0.3);
+}
+
+.performance-indicator.critical {
+  background: rgba(255, 0, 0, 0.2);
+  color: #ff0000;
+  border: 1px solid rgba(255, 0, 0, 0.3);
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .disable-animations *,
+  .disable-animations *::before,
+  .disable-animations *::after {
+    animation-duration: 0.01s !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01s !important;
+  }
+}
+
+/* High contrast mode adjustments */
+@media (prefers-contrast: high) {
+  .disable-visual-effects *[class*="glow"] {
+    border: 1px solid currentColor !important;
+  }
+}
+
+/* Print mode - disable all effects */
+@media print {
+  .glow-effect,
+  .hologram-effect,
+  .scanline-effect,
+  .particle,
+  .background-effect,
+  *[class*="glow"],
+  *[class*="hologram"],
+  *[class*="particle"] {
+    display: none !important;
+  }
+  
+  * {
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+    filter: none !important;
+    background-image: none !important;
+  }
+}
+
+/* Accessibility styles */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* High contrast mode support */
+.high-contrast-mode {
+  --theme-text: #ffffff !important;
+  --theme-background: #000000 !important;
+  --theme-border: #ffffff !important;
+  --theme-glow: #ffffff !important;
+}
+
+.high-contrast .sci-fi-glow {
+  box-shadow: 0 0 10px #ffffff !important;
+}
+
+.high-contrast .sci-fi-themed {
+  border: 2px solid #ffffff !important;
+}
+
+/* Keyboard accessibility */
+.sci-fi-themed:focus {
+  outline: 2px solid var(--theme-primary, #00f0ff);
+  outline-offset: 2px;
+}
+
+.keyboard-activated {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+/* Fallback styles for when theme system fails */
+.sci-fi-glow-fallback {
+  border: 1px solid currentColor;
+  opacity: 0.9;
+}
+
+.sci-fi-hologram-fallback {
+  opacity: 0.95;
+  filter: brightness(0.95);
+}
+
+/* Enhanced performance optimization classes */
+.disable-visual-effects .sci-fi-glow,
+.disable-visual-effects .sci-fi-hologram,
+.disable-visual-effects .sci-fi-scanlines {
+  animation: none !important;
+  filter: none !important;
+  box-shadow: none !important;
+}

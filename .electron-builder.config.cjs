@@ -7,7 +7,7 @@ module.exports = async function () {
     return {
         appId: 'com.ZaunPlugin.RPGDataEditor',
         productName: 'RPG数据拓展编辑器',
-        copyright: 'Copyright © 2024 Zaun',
+        copyright: 'Copyright © 2025 Zaun',
         
         // ASAR packaging for security and performance
         asar: true,
@@ -18,7 +18,7 @@ module.exports = async function () {
         ],
         
         // Post-pack hook
-        afterPack: './afterPack/afterPack.js',
+        afterPack: './afterPack/afterPack.cjs',
         
         // Output directory
         directories: {
@@ -85,9 +85,10 @@ module.exports = async function () {
             createDesktopShortcut: true,
             createStartMenuShortcut: true,
             shortcutName: 'RPG数据拓展编辑器',
-            installerIcon: 'icon/icon.png',
-            uninstallerIcon: 'icon/icon.png',
-            installerHeaderIcon: 'icon/icon.png',
+            // Note: NSIS requires .ico format for icons
+            // installerIcon: 'icon/icon.ico',
+            // uninstallerIcon: 'icon/icon.ico',
+            // installerHeaderIcon: 'icon/icon.ico',
             license: 'LICENSE',
             // Multi-language support
             installerLanguages: ['zh_CN', 'en_US'],

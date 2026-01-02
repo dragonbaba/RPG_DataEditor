@@ -1,0 +1,2164 @@
+/* Performance-based feature toggles */
+@import './theme/performance.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Core Colors */
+  --bg-dark: #050a10;
+  --bg-panel: rgba(16, 24, 39, 0.85);
+  --bg-input: rgba(0, 0, 0, 0.4);
+
+  --accent-primary: #00f0ff;
+  /* Cyan */
+  --accent-secondary: #7000ff;
+  /* Magenta */
+  --accent-success: #00ff9d;
+  --accent-warning: #ffb800;
+  --accent-danger: #ff3366;
+
+  --border-dim: rgba(0, 240, 255, 0.15);
+  --border-bright: rgba(0, 240, 255, 0.5);
+
+  --text-main: #e0f2ff;
+  --text-dim: #64748b;
+
+  /* Sci-Fi Effects */
+  --glow-text: 0 0 5px rgba(0, 240, 255, 0.3);
+  --glow-box: 0 0 10px rgba(0, 240, 255, 0.1);
+  --glow-border: 0 0 5px rgba(0, 240, 255, 0.3);
+}
+
+/* 确保html和body占满整个视口 */
+html {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+/* 确保应用容器占满整个宽度 */
+.app-container {
+  width: 100vw !important;
+  max-width: none !important;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  font-family: 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+  width: 100vw; /* 确保body占满整个视口宽度 */
+  height: 100vh; /* 确保body占满整个视口高度 */
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+/* Layout fixes for main content area */
+.main-content {
+  min-height: 0; /* Important for flex children */
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  width: 100%; /* 确保主内容区域占满宽度 */
+}
+
+.main-content > * {
+  min-width: 0; /* Prevent flex items from overflowing */
+  min-height: 0; /* Prevent flex items from overflowing */
+}
+
+/* Ensure right panels fill remaining space */
+.code-editor-container,
+.property-panel,
+.note-panel,
+.projectile-panel,
+.quest-panel {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0%;
+}
+
+/* Ensure empty state panel fills space */
+.empty-state-panel {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 0%;
+}
+
+/* Status bar styling */
+.status-bar {
+  height: 32px; /* Fixed height for status bar */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(0, 240, 255, 0.2);
+  background: linear-gradient(90deg, 
+    rgba(16, 24, 39, 0.95) 0%, 
+    rgba(8, 15, 25, 0.95) 50%, 
+    rgba(16, 24, 39, 0.95) 100%);
+  box-shadow: 
+    0 -1px 3px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(0, 240, 255, 0.1);
+}
+
+.status-bar .status-text {
+  text-shadow: 0 0 3px rgba(0, 240, 255, 0.3);
+  transition: color 0.3s ease;
+}
+
+.status-bar .stats-info {
+  font-family: 'Courier New', monospace;
+  letter-spacing: 0.5px;
+}
+
+/* Script panel - 纯色背景覆盖网格 */
+.middle-panel {
+  background: rgba(31, 41, 55, 0.95) !important; /* 纯色背景覆盖网格 */
+}
+
+/* Script panel styling improvements */
+.script-list {
+  padding: 0;
+}
+
+.script-item {
+  padding: 0.75rem 1rem;
+  margin: 0;
+  transition: all 0.2s ease;
+  border: none;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+.script-item:hover {
+  background-color: rgba(55, 65, 81, 0.6) !important;
+}
+
+.script-item.active {
+  background-color: rgba(6, 182, 212, 0.2) !important;
+  border-left: 3px solid #06b6d4;
+}
+
+.script-item-label {
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: #e5e7eb;
+}
+
+.new-script-btn {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: rgba(6, 182, 212, 0.1);
+  border: none;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  width: 100%;
+}
+
+.new-script-btn:hover {
+  background: rgba(6, 182, 212, 0.2);
+}
+
+/* Code editor container - 简化布局，让Monaco自然填充 */
+.code-editor-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #252530; /* 纯色背景覆盖网格 */
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
+  min-height: 0;
+  width: 100%; /* 强制宽度为100% */
+}
+
+.code-editor-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%; /* 强制宽度为100% */
+}
+
+.code-editor {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* 强制Monaco编辑器DOM节点填充容器 */
+.code-editor .monaco-editor {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.code-editor .monaco-editor .overflow-guard {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Panel headers styling - simplified */
+.panel-header {
+  background: rgba(31, 41, 55, 0.9);
+  border-bottom: 1px solid rgba(75, 85, 99, 0.5);
+}
+
+/* Ensure body accounts for fixed status bar */
+body {
+  padding-bottom: 32px;
+}
+
+/* Responsive layout adjustments */
+@media (max-width: 1200px) {
+  .middle-panel {
+    width: 16rem !important; /* w-64 equivalent */
+  }
+}
+
+@media (max-width: 900px) {
+  .middle-panel {
+    width: 12rem !important; /* w-48 equivalent */
+  }
+  
+  .script-item {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .script-item-label {
+    font-size: 0.8125rem;
+  }
+}
+
+/* Left panel (project list) responsive width */
+@media (max-width: 1200px) {
+  .left-panel {
+    width: 14rem !important; /* Slightly narrower on smaller screens */
+  }
+}
+
+@media (max-width: 900px) {
+  .left-panel {
+    width: 12rem !important;
+  }
+}
+
+/* Editor containers should fill their parent */
+.code-editor-container,
+.property-panel,
+.note-panel,
+.projectile-panel,
+.quest-panel {
+  min-width: 0;
+  flex: 1 1 0%;
+  height: 100%;
+}
+
+/* Ensure Monaco editor DOM node fills container */
+.code-editor .monaco-editor {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.code-editor .monaco-editor .overflow-guard {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Property editor grid should fill container */
+.property-base-grid {
+  min-height: 0;
+  flex: 1;
+}
+
+/* Note editor should fill container */
+.note-editor-wrapper {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-editor-wrapper textarea {
+  width: 100%;
+  flex: 1;
+  min-height: 200px;
+  resize: none;
+}
+
+/* Note description wrapper */
+.note-description-wrapper textarea {
+  width: 100%;
+  height: 96px; /* h-24 equivalent */
+  resize: none;
+}
+
+/* Projectile panel should fill container */
+.projectile-panel {
+  min-width: 0;
+  flex: 1 1 0%;
+  height: 100%;
+}
+
+.projectile-panel-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Quest panel should fill container */
+.quest-panel {
+  min-width: 0;
+  flex: 1 1 0%;
+  height: 100%;
+}
+
+/* Panel Scrolling Fix */
+.projectile-panel, .quest-panel {
+  height: 100%;
+  max-height: 100vh;
+}
+
+.projectile-panel-scroll, .quest-panel-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+/* Ensure PixiJS container has minimum dimensions */
+.projectile-preview {
+  min-height: 16rem; /* 256px */
+  min-width: 100%;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.2);
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
+}
+
+/* --- Sci-Fi Component Classes --- */
+
+/* 1. Cards */
+.sci-fi-card {
+  background: rgba(10, 20, 30, 0.6);
+  border: 1px solid var(--border-dim);
+  border-radius: 4px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(4px);
+}
+
+.sci-fi-card:hover {
+  border-color: var(--border-bright);
+  box-shadow: var(--glow-box);
+  background: rgba(10, 20, 30, 0.8);
+}
+
+/* Corner Accents for Cards */
+.sci-fi-card::before {
+  content: '';
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 8px;
+  height: 8px;
+  border-top: 2px solid var(--accent-primary);
+  border-left: 2px solid var(--accent-primary);
+  border-top-left-radius: 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.sci-fi-card::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 8px;
+  height: 8px;
+  border-bottom: 2px solid var(--accent-primary);
+  border-right: 2px solid var(--accent-primary);
+  border-bottom-right-radius: 4px;
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.sci-fi-card:hover::before,
+.sci-fi-card:hover::after {
+  opacity: 1;
+}
+
+/* 2. Inputs & Selects */
+.theme-input,
+.theme-select,
+textarea,
+.sci-fi-input {
+  background: rgba(0, 0, 0, 0.3) !important;
+  border: 1px solid var(--border-dim) !important;
+  color: var(--text-main) !important;
+  font-family: 'Consolas', monospace;
+  /* Tech feel */
+  font-size: 0.875rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 2px;
+  transition: all 0.2s;
+}
+
+.theme-input:focus,
+.theme-select:focus,
+textarea:focus,
+.sci-fi-input:focus {
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+  outline: none;
+  background: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Custom Select Arrow */
+.theme-select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2300f0ff'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  background-size: 1rem;
+  padding-right: 2rem;
+}
+
+/* Enhancing Select Options (Limited support) */
+.theme-select option {
+  background-color: #0f172a;
+  /* Slate 900 */
+  color: #e0f2ff;
+}
+
+/* 3. Buttons */
+.sci-fi-btn,
+.action-btn,
+.save-btn,
+.clear-btn,
+.icon-btn {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+  transition: all 0.2s;
+  border-radius: 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sci-fi-btn:hover,
+.action-btn:hover,
+.save-btn:hover,
+.clear-btn:hover,
+.icon-btn:hover {
+  filter: brightness(1.2);
+}
+
+.icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
+  color: var(--text-dim);
+}
+
+.icon-btn:hover {
+  background: rgba(255, 51, 102, 0.2);
+  color: var(--accent-danger);
+  border-color: var(--accent-danger);
+}
+
+/* 4. Labels */
+.sci-fi-label,
+label,
+.label-text {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  display: block;
+  font-weight: 600;
+}
+
+/* --- Panel Specifics --- */
+
+/* Projectile Preview */
+#projectilePreviewContainer {
+  background: radial-gradient(circle at center, rgba(16, 32, 48, 0.8) 0%, rgba(5, 10, 16, 0.95) 100%);
+  border: 1px solid var(--border-dim);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Grid lines for preview */
+#projectilePreviewContainer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  pointer-events: none;
+}
+
+/* Quest Card Specifics */
+.quest-card {
+  @apply sci-fi-card;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.quest-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 0.25rem;
+}
+
+.quest-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+/* Quest Field Wrapper (generated by appendQuestField) */
+.quest-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.quest-field-label {
+  @apply sci-fi-label;
+}
+
+/* Mini Lists (Switches/Variables) */
+.mini-group {
+  margin-top: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  border-radius: 4px;
+}
+
+.mini-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.mini-add {
+  @apply icon-btn;
+  width: 20px;
+  height: 20px;
+  font-size: 1rem;
+  line-height: 1;
+  background: rgba(0, 240, 255, 0.1);
+  color: var(--accent-primary);
+}
+
+.mini-add:hover {
+  background: var(--accent-primary);
+  color: #000;
+  border-color: transparent;
+}
+
+.mini-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+
+.mini-row:last-child {
+  margin-bottom: 0;
+}
+
+.mini-row .theme-select,
+.mini-row .theme-input {
+  flex: 1;
+  min-width: 0;
+  /* Prevent overflow */
+}
+
+.mini-row .switch-value {
+  flex: 0 0 70px;
+}
+
+.mini-row .variable-op {
+  flex: 0 0 50px;
+}
+
+.mini-row .variable-value {
+  flex: 0 0 70px;
+}
+
+/* Projectile Segment Card */
+.segment-card {
+  @apply sci-fi-card;
+}
+
+/* Property Mode */
+.property-field {
+  @apply sci-fi-card;
+  padding: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.property-field label {
+  @apply block text-xs font-medium text-gray-300 mb-1;
+}
+
+.property-field input {
+  @apply w-full px-2 py-1 text-xs bg-gray-800 border border-gray-600 rounded;
+  @apply focus:border-cyan-500 focus:outline-none;
+  @apply disabled:bg-gray-900 disabled:cursor-not-allowed;
+}
+
+/* Base attributes grid - 4 columns for compact layout */
+.base-attribute-list {
+  @apply grid grid-cols-4 gap-2;
+}
+
+/* Custom attributes with scrolling */
+.custom-attribute-list {
+  @apply space-y-2;
+  max-height: calc(100vh - 400px); /* 留出足够空间给基础属性和头部 */
+  overflow-y: auto;
+  padding-right: 4px; /* 为滚动条留出空间 */
+}
+
+/* 自定义滚动条样式 */
+.custom-attribute-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-attribute-list::-webkit-scrollbar-track {
+  @apply bg-gray-800 rounded;
+}
+
+.custom-attribute-list::-webkit-scrollbar-thumb {
+  @apply bg-cyan-600 rounded;
+}
+
+.custom-attribute-list::-webkit-scrollbar-thumb:hover {
+  @apply bg-cyan-500;
+}
+
+/* Custom attribute card styling - 水平布局，完全对应oldCode/main.js */
+.custom-attribute-card {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 12px;
+  align-items: flex-end;
+  min-height: auto !important;
+  margin-bottom: 8px;
+}
+
+.custom-field-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.custom-field-wrapper input {
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.3);
+  color: #e0e0e0;
+  font-size: 13px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.custom-field-wrapper input:focus {
+  border-color: #4da6ff;
+  box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.1);
+  outline: none;
+}
+
+.custom-attribute-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.custom-attribute-actions .remove-btn {
+  background: rgba(244, 67, 54, 0.15);
+  color: #ff8787;
+  border: 1px solid rgba(244, 67, 54, 0.2);
+}
+
+.custom-empty {
+  font-size: 12px;
+  color: rgba(224, 224, 224, 0.5);
+  padding: 8px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+}
+
+/* 清理重复的样式，只保留正确的自定义属性样式 */
+
+/* 备注编辑面板样式优化 */
+.note-content-wrapper {
+  gap: 1rem;
+}
+
+.note-description-section,
+.note-editor-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.3s ease;
+}
+
+.note-description-section:hover,
+.note-editor-section:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+}
+
+.note-description,
+.note-editor {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+}
+
+.note-description:focus,
+.note-editor:focus {
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+/* 弹道预览现代化样式 */
+.projectile-preview-container {
+  position: relative;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 20, 40, 0.6) 100%);
+  border: 2px solid rgba(0, 240, 255, 0.2);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.4s ease;
+}
+
+.projectile-preview-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.1), transparent);
+  transition: left 0.6s ease;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.projectile-preview-container:hover::before {
+  left: 100%;
+}
+
+.projectile-preview-container:hover {
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 
+    0 0 30px rgba(0, 240, 255, 0.2),
+    inset 0 0 30px rgba(0, 240, 255, 0.05);
+}
+
+/* 弹道控制按钮现代化 */
+/* 弹道控制按钮现代化 */
+.projectile-controls {
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.projectile-controls:hover {
+  background: rgba(0, 0, 0, 0.7);
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.1);
+}
+
+/* Responsive button layout for projectile controls */
+@media (max-width: 1200px) {
+  .projectile-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  
+  .projectile-controls > * {
+    flex: none;
+    width: 100%;
+  }
+  
+  .projectile-controls .flex {
+    flex-direction: row;
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .projectile-controls .flex > * {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+/* Compact mode for smaller screens */
+@media (max-width: 900px) {
+  .projectile-controls {
+    padding: 8px;
+    gap: 4px;
+  }
+  
+  .projectile-controls button {
+    padding: 6px 8px;
+    font-size: 0.75rem;
+  }
+  
+  .projectile-controls .frame-info {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+}
+
+/* 动态按钮效果 */
+.action-btn {
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.1) 0%, rgba(112, 0, 255, 0.1) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.action-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.action-btn:hover::before {
+  left: 100%;
+}
+
+.action-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.2) 0%, rgba(112, 0, 255, 0.2) 100%);
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: 
+    0 0 20px rgba(0, 240, 255, 0.3),
+    inset 0 0 20px rgba(0, 240, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.action-btn:active {
+  transform: translateY(0);
+  box-shadow: 
+    0 0 15px rgba(0, 240, 255, 0.4),
+    inset 0 0 15px rgba(0, 240, 255, 0.2);
+}
+
+.action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.action-btn:disabled:hover {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.1) 0%, rgba(112, 0, 255, 0.1) 100%);
+  border-color: rgba(0, 240, 255, 0.3);
+  transform: none;
+  box-shadow: none;
+}
+
+/* 帧信息显示现代化 */
+.frame-info {
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: 'Courier New', monospace;
+  color: rgba(0, 240, 255, 0.9);
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  transition: all 0.3s ease;
+}
+
+.frame-info:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(0, 240, 255, 0.5);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+}
+
+/* 项目列表项现代化 */
+.item-list-item {
+  position: relative;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  margin: 2px 0;
+  overflow: hidden;
+}
+
+.item-list-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 3px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, rgba(0, 240, 255, 0.6), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.item-list-item:hover::before {
+  opacity: 1;
+}
+
+.item-list-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+  transform: translateX(4px);
+}
+
+.item-list-item.selected {
+  background: rgba(0, 240, 255, 0.1);
+  border-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+}
+
+.item-list-item.selected::before {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(0, 240, 255, 0.8), rgba(0, 240, 255, 1), rgba(0, 240, 255, 0.8));
+}
+
+/* 脚本列表项现代化 */
+.script-list-item {
+  position: relative;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  margin: 1px 0;
+  overflow: hidden;
+}
+
+.script-list-item::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: linear-gradient(180deg, transparent, rgba(0, 255, 136, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.script-list-item:hover::after {
+  opacity: 1;
+}
+
+.script-list-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(0, 255, 136, 0.2);
+  box-shadow: 0 0 12px rgba(0, 255, 136, 0.08);
+  transform: translateX(2px);
+}
+
+.script-list-item.selected {
+  background: rgba(0, 255, 136, 0.08);
+  border-color: rgba(0, 255, 136, 0.3);
+  box-shadow: 0 0 15px rgba(0, 255, 136, 0.15);
+}
+
+.script-list-item.selected::after {
+  opacity: 1;
+  background: linear-gradient(180deg, rgba(0, 255, 136, 0.6), rgba(0, 255, 136, 0.8), rgba(0, 255, 136, 0.6));
+}
+
+/* 侧边栏标题现代化 */
+.sidebar-title {
+  position: relative;
+  color: rgba(0, 240, 255, 0.9);
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+  transition: all 0.3s ease;
+}
+
+.sidebar-title::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.6), transparent);
+  transition: all 0.3s ease;
+}
+
+.sidebar-title:hover {
+  color: rgba(0, 240, 255, 1);
+  text-shadow: 0 0 15px rgba(0, 240, 255, 0.5);
+}
+
+.sidebar-title:hover::after {
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.8), rgba(0, 240, 255, 0.3), transparent);
+  height: 2px;
+}
+
+/* 状态栏现代化 */
+.status-bar {
+  background: rgba(0, 0, 0, 0.8);
+  border-top: 1px solid rgba(0, 240, 255, 0.2);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.status-bar:hover {
+  background: rgba(0, 0, 0, 0.9);
+  border-top-color: rgba(0, 240, 255, 0.4);
+  box-shadow: 0 -5px 20px rgba(0, 240, 255, 0.1);
+}
+
+.status-item {
+  color: rgba(0, 240, 255, 0.8);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.2);
+  transition: all 0.3s ease;
+}
+
+.status-item:hover {
+  color: rgba(0, 240, 255, 1);
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+}
+
+.note-description:hover,
+.note-editor:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.note-description:focus,
+.note-editor:focus {
+  outline: none;
+  border-color: #4da6ff;
+  background: rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 2px rgba(77, 166, 255, 0.1);
+}
+
+.note-description:disabled,
+.note-editor:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.remove-btn {
+  @apply text-red-400 hover:text-red-300 text-xs px-2 py-1;
+  @apply uppercase tracking-wide transition-colors;
+}
+
+.remove-btn:hover {
+  @apply bg-red-900/20 rounded;
+}
+
+/* Transitions */
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   Futuristic Projectile Panel Styles
+   ======================================== */
+
+/* Projectile Preview Section Layout */
+.projectile-preview-section {
+  background: linear-gradient(135deg, rgba(8, 15, 25, 0.9) 0%, rgba(12, 25, 40, 0.8) 100%);
+  border: 1px solid var(--border-dim);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.projectile-preview-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+      transparent,
+      var(--accent-primary),
+      var(--accent-secondary),
+      var(--accent-primary),
+      transparent);
+  opacity: 0.6;
+}
+
+/* Responsive layout for projectile preview */
+@media (max-width: 1200px) {
+  .projectile-preview-section {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .projectile-preview-section .flex-1 {
+    flex: none;
+    width: 100%;
+  }
+  
+  .projectile-preview-section .w-72 {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* Compact preview controls for smaller screens */
+@media (max-width: 900px) {
+  .projectile-preview-section {
+    padding: 0.75rem;
+  }
+  
+  .projectile-preview-container {
+    min-height: 200px;
+  }
+  
+  .preview-sync-panel {
+    padding: 0.75rem;
+  }
+}
+
+/* Preview Sync Panel - Futuristic Styling */
+.preview-sync-panel {
+  background: linear-gradient(180deg, rgba(0, 15, 30, 0.95) 0%, rgba(5, 20, 35, 0.9) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.25);
+  border-radius: 6px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.preview-sync-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  background-size: 10px 10px;
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.preview-sync-panel::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+      transparent 0%,
+      var(--accent-primary) 50%,
+      transparent 100%);
+  box-shadow: 0 0 10px var(--accent-primary);
+}
+
+/* Sync Section Headers */
+.sync-section-title {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent-primary);
+  text-shadow: var(--glow-text);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sync-section-title::before {
+  content: '◈';
+  font-size: 0.75rem;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+    text-shadow: 0 0 10px var(--accent-primary);
+  }
+}
+
+/* Emitter and Target Config Boxes */
+.sync-config-box {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(0, 240, 255, 0.15);
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.sync-config-box:hover {
+  border-color: rgba(0, 240, 255, 0.4);
+  background: rgba(0, 10, 20, 0.6);
+  box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05);
+}
+
+.sync-config-box.emitter-box {
+  border-left: 3px solid #00f0ff;
+}
+
+.sync-config-box.target-box {
+  border-left: 3px solid #ff3366;
+}
+
+.sync-config-label {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sync-config-label .icon {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 6px currentColor;
+}
+
+.sync-config-label.emitter .icon {
+  background: #00f0ff;
+}
+
+.sync-config-label.target .icon {
+  background: #ff3366;
+}
+
+/* Enhanced Trajectory Section */
+.projectile-trajectory-section {
+  position: relative;
+}
+
+.projectile-trajectory-section::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, var(--accent-primary) 0%, transparent 100%);
+  opacity: 0.3;
+}
+
+/* Segment Cards - Enhanced */
+.segment-card {
+  position: relative;
+  transition: all 0.3s ease;
+  border-left: 2px solid transparent;
+}
+
+.segment-card:hover {
+  border-left-color: var(--accent-primary);
+  transform: translateX(4px);
+}
+
+.segment-card::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  box-shadow: 0 0 8px var(--accent-primary);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.segment-card:hover::before {
+  opacity: 1;
+}
+
+/* Play Button Enhancement */
+#projectilePlayTestBtn {
+  background: linear-gradient(135deg, #00a8b3 0%, #006670 100%);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+#projectilePlayTestBtn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s ease;
+}
+
+#projectilePlayTestBtn:hover::before {
+  left: 100%;
+}
+
+#projectilePlayTestBtn:hover {
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
+  transform: translateY(-2px);
+}
+
+/* Data Files Section - Compact Grid */
+.projectile-data-section {
+  position: relative;
+}
+
+.projectile-data-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.5rem;
+}
+
+.projectile-file-control {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.5rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.projectile-file-control:hover {
+  background: rgba(0, 0, 0, 0.35);
+  border-color: rgba(0, 240, 255, 0.15);
+}
+
+/* Animation Select Section - Side by side layout */
+.projectile-animation-select-section .grid {
+  gap: 1rem;
+}
+
+/* Offset Section - Enhanced styling */
+.projectile-offset-section {
+  position: relative;
+}
+
+.actor-offset,
+.enemy-offset {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 0.75rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Futuristic Panel Header */
+.panel-header.futuristic {
+  background: linear-gradient(90deg, rgba(0, 240, 255, 0.1) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(0, 240, 255, 0.2) !important;
+}
+
+/* Scan Line Animation for Preview */
+@keyframes scanLine {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(calc(100% + 100vh));
+  }
+}
+
+.projectile-preview::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.5), transparent);
+  pointer-events: none;
+  animation: scanLine 3s linear infinite;
+  opacity: 0.3;
+}
+
+/* Force hidden utility to override flex/grid display utilities */
+.hidden {
+  display: none !important;
+}
+
+/* ========================================
+   Theme Settings Dialog Styles
+   ======================================== */
+
+.theme-settings-dialog {
+  backdrop-filter: blur(4px);
+}
+
+.theme-settings-content {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Theme setting buttons */
+.preset-btn,
+.theme-btn,
+.accent-btn {
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.preset-btn:hover,
+.theme-btn:hover {
+  background-color: rgb(55, 65, 81);
+  transform: translateY(-1px);
+}
+
+.preset-btn.active,
+.theme-btn.active {
+  background-color: rgb(0, 240, 255);
+  color: rgb(3, 7, 18);
+  border-color: rgb(0, 240, 255);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+}
+
+.accent-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
+}
+
+.accent-btn.active {
+  border-color: rgb(255, 255, 255);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
+  transform: scale(1.1);
+}
+
+/* Custom checkbox and select styling */
+.theme-settings-dialog input[type="checkbox"] {
+  accent-color: rgb(0, 240, 255);
+}
+
+.theme-settings-dialog select {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+  background-position: right 0.5rem center;
+  background-repeat: no-repeat;
+  background-size: 1.5em 1.5em;
+  padding-right: 2.5rem;
+}
+
+.theme-settings-dialog select:focus {
+  border-color: rgb(0, 240, 255);
+  box-shadow: 0 0 0 1px rgb(0, 240, 255);
+}
+
+/* Animation for dialog appearance */
+.theme-settings-dialog:not(.hidden) {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.theme-settings-dialog:not(.hidden) .theme-settings-content {
+  animation: slideIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Responsive theme settings dialog */
+@media (max-width: 640px) {
+  .theme-settings-content {
+    width: 90vw;
+    max-width: none;
+    margin: 1rem;
+  }
+  
+  .preset-btn {
+    font-size: 0.7rem;
+    padding: 0.375rem 0.5rem;
+  }
+  
+  .theme-settings-body {
+    padding: 1rem;
+  }
+  
+  .grid.grid-cols-3 {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ========================================
+   Enhanced Sci-Fi Theme System Classes
+   ======================================== */
+
+/* Theme presets */
+.preset-cyberpunk {
+  --theme-primary: #00f0ff;
+  --theme-secondary: #7000ff;
+  --theme-accent: #00ff88;
+  --theme-glow: rgba(0, 240, 255, 0.4);
+}
+
+.preset-cyberpunk .sci-fi-particles::before {
+  opacity: 1;
+}
+
+.preset-cyberpunk .sci-fi-scanlines::before {
+  opacity: 0.15;
+}
+
+.preset-minimal {
+  --theme-primary: #00ff88;
+  --theme-secondary: #64748b;
+  --theme-accent: #0ea5e9;
+  --theme-glow: rgba(0, 255, 136, 0.2);
+}
+
+.preset-minimal .sci-fi-particles::before {
+  display: none;
+}
+
+.preset-minimal .sci-fi-scanlines::before {
+  opacity: 0.02;
+}
+
+.preset-minimal .sci-fi-glow {
+  box-shadow: 0 0 3px var(--glow-color, var(--sci-fi-glow));
+}
+
+.preset-high-contrast {
+  --theme-primary: #ff8800;
+  --theme-secondary: #ffffff;
+  --theme-accent: #ffff00;
+  --theme-glow: rgba(255, 136, 0, 0.5);
+  --theme-text: #ffffff;
+  --theme-background: #000000;
+  --theme-border: #ffffff;
+}
+
+.preset-high-contrast .sci-fi-glow {
+  box-shadow: 
+    0 0 8px var(--glow-color, var(--sci-fi-glow)),
+    0 0 16px var(--glow-color, var(--sci-fi-glow));
+}
+
+.preset-high-contrast .sci-fi-themed {
+  border: 2px solid var(--theme-border);
+}
+
+/* Accent color variations */
+[data-accent="cyan"] {
+  --theme-accent-primary: #00f0ff;
+  --theme-accent-glow: rgba(0, 240, 255, 0.3);
+}
+
+[data-accent="magenta"] {
+  --theme-accent-primary: #ff00ff;
+  --theme-accent-glow: rgba(255, 0, 255, 0.3);
+}
+
+[data-accent="green"] {
+  --theme-accent-primary: #00ff88;
+  --theme-accent-glow: rgba(0, 255, 136, 0.3);
+}
+
+[data-accent="orange"] {
+  --theme-accent-primary: #ff8800;
+  --theme-accent-glow: rgba(255, 136, 0, 0.3);
+}
+
+/* Theme mode variations */
+[data-theme="dark"] {
+  --theme-bg-primary: #050a10;
+  --theme-bg-secondary: rgba(16, 24, 39, 0.85);
+  --theme-text-primary: #e0f2ff;
+  --theme-text-secondary: #64748b;
+  --theme-border-primary: rgba(0, 240, 255, 0.15);
+}
+
+[data-theme="light"] {
+  --theme-bg-primary: #f8fafc;
+  --theme-bg-secondary: rgba(255, 255, 255, 0.85);
+  --theme-text-primary: #1e293b;
+  --theme-text-secondary: #64748b;
+  --theme-border-primary: rgba(0, 240, 255, 0.25);
+}
+
+/* Animation control */
+[data-animations="false"] .sci-fi-glow,
+[data-animations="false"] .sci-fi-themed,
+[data-animations="false"] .sci-fi-scanlines::before,
+[data-animations="false"] .sci-fi-particles::before {
+  animation: none !important;
+  transition: none !important;
+}
+
+[data-animations="true"] .sci-fi-glow,
+[data-animations="true"] .sci-fi-themed {
+  transition: all var(--sci-fi-transition-duration, 300ms) ease;
+}
+
+/* Font size variations */
+[data-font-size="small"] {
+  font-size: 0.75rem;
+}
+
+[data-font-size="small"] .text-sm {
+  font-size: 0.7rem;
+}
+
+[data-font-size="small"] .text-base {
+  font-size: 0.75rem;
+}
+
+[data-font-size="small"] .text-lg {
+  font-size: 0.875rem;
+}
+
+[data-font-size="medium"] {
+  font-size: 0.875rem;
+}
+
+[data-font-size="medium"] .text-sm {
+  font-size: 0.8rem;
+}
+
+[data-font-size="medium"] .text-base {
+  font-size: 0.875rem;
+}
+
+[data-font-size="medium"] .text-lg {
+  font-size: 1rem;
+}
+
+[data-font-size="large"] {
+  font-size: 1rem;
+}
+
+[data-font-size="large"] .text-sm {
+  font-size: 0.875rem;
+}
+
+[data-font-size="large"] .text-base {
+  font-size: 1rem;
+}
+
+[data-font-size="large"] .text-lg {
+  font-size: 1.125rem;
+}
+
+/* Compact mode styles */
+.compact-mode {
+  --spacing-1: 0.125rem;
+  --spacing-2: 0.25rem;
+  --spacing-3: 0.375rem;
+  --spacing-4: 0.5rem;
+  --spacing-6: 0.75rem;
+  --spacing-8: 1rem;
+}
+
+.compact-mode .p-1 { padding: var(--spacing-1); }
+.compact-mode .p-2 { padding: var(--spacing-2); }
+.compact-mode .p-3 { padding: var(--spacing-3); }
+.compact-mode .p-4 { padding: var(--spacing-4); }
+.compact-mode .p-6 { padding: var(--spacing-6); }
+.compact-mode .p-8 { padding: var(--spacing-8); }
+
+.compact-mode .px-1 { padding-left: var(--spacing-1); padding-right: var(--spacing-1); }
+.compact-mode .px-2 { padding-left: var(--spacing-2); padding-right: var(--spacing-2); }
+.compact-mode .px-3 { padding-left: var(--spacing-3); padding-right: var(--spacing-3); }
+.compact-mode .px-4 { padding-left: var(--spacing-4); padding-right: var(--spacing-4); }
+
+.compact-mode .py-1 { padding-top: var(--spacing-1); padding-bottom: var(--spacing-1); }
+.compact-mode .py-2 { padding-top: var(--spacing-2); padding-bottom: var(--spacing-2); }
+.compact-mode .py-3 { padding-top: var(--spacing-3); padding-bottom: var(--spacing-3); }
+.compact-mode .py-4 { padding-top: var(--spacing-4); padding-bottom: var(--spacing-4); }
+
+.compact-mode .m-1 { margin: var(--spacing-1); }
+.compact-mode .m-2 { margin: var(--spacing-2); }
+.compact-mode .m-3 { margin: var(--spacing-3); }
+.compact-mode .m-4 { margin: var(--spacing-4); }
+
+.compact-mode .mb-1 { margin-bottom: var(--spacing-1); }
+.compact-mode .mb-2 { margin-bottom: var(--spacing-2); }
+.compact-mode .mb-3 { margin-bottom: var(--spacing-3); }
+.compact-mode .mb-4 { margin-bottom: var(--spacing-4); }
+
+.compact-mode .space-y-1 > * + * { margin-top: var(--spacing-1); }
+.compact-mode .space-y-2 > * + * { margin-top: var(--spacing-2); }
+.compact-mode .space-y-3 > * + * { margin-top: var(--spacing-3); }
+.compact-mode .space-y-4 > * + * { margin-top: var(--spacing-4); }
+
+/* Base sci-fi themed elements */
+.sci-fi-themed {
+  position: relative;
+  transition: all var(--sci-fi-transition-duration, 300ms) ease;
+}
+
+/* Theme variants */
+.theme-variant-primary {
+  --theme-primary: var(--sci-fi-primary);
+  --theme-glow: var(--sci-fi-glow);
+}
+
+.theme-variant-secondary {
+  --theme-primary: var(--sci-fi-secondary);
+  --theme-glow: rgba(112, 0, 255, 0.3);
+}
+
+.theme-variant-accent {
+  --theme-primary: var(--sci-fi-accent);
+  --theme-glow: rgba(0, 255, 136, 0.3);
+}
+
+.theme-variant-warning {
+  --theme-primary: var(--sci-fi-warning);
+  --theme-glow: rgba(255, 184, 0, 0.3);
+}
+
+.theme-variant-success {
+  --theme-primary: var(--sci-fi-success);
+  --theme-glow: rgba(0, 255, 157, 0.3);
+}
+
+.theme-variant-error {
+  --theme-primary: var(--sci-fi-error);
+  --theme-glow: rgba(255, 51, 102, 0.3);
+}
+
+/* Glow effects */
+.sci-fi-glow {
+  box-shadow: 
+    0 0 5px var(--glow-color, var(--sci-fi-glow)),
+    0 0 10px var(--glow-color, var(--sci-fi-glow)),
+    0 0 15px var(--glow-color, var(--sci-fi-glow));
+  transition: box-shadow var(--sci-fi-transition-duration, 300ms) ease;
+}
+
+.sci-fi-glow:hover {
+  box-shadow: 
+    0 0 8px var(--glow-color, var(--sci-fi-glow)),
+    0 0 16px var(--glow-color, var(--sci-fi-glow)),
+    0 0 24px var(--glow-color, var(--sci-fi-glow));
+}
+
+/* Scanline effects */
+.sci-fi-scanlines {
+  position: relative;
+  overflow: hidden;
+}
+
+.sci-fi-scanlines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: 
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 240, 255, var(--scanline-opacity, 0.1)) 2px,
+      rgba(0, 240, 255, var(--scanline-opacity, 0.1)) 4px
+    );
+  pointer-events: none;
+  animation: scanlines-move 2s linear infinite;
+}
+
+@keyframes scanlines-move {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+
+/* Hologram effects */
+.sci-fi-hologram {
+  position: relative;
+  filter: contrast(1.1) brightness(1.1);
+}
+
+.sci-fi-hologram::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 240, 255, 0.03) 50%,
+    transparent 100%
+  );
+  animation: hologram-flicker 0.15s ease-in-out;
+  pointer-events: none;
+  opacity: var(--flicker-intensity, 0.05);
+}
+
+@keyframes hologram-flicker {
+  0%, 100% { opacity: 0; }
+  50% { opacity: var(--flicker-intensity, 0.05); }
+}
+
+/* Global theme modes */
+.sci-fi-dark {
+  --sci-fi-background: #050a10;
+  --sci-fi-surface: rgba(16, 24, 39, 0.85);
+  --sci-fi-text: #e0f2ff;
+  --sci-fi-text-secondary: #64748b;
+  --sci-fi-border: rgba(0, 240, 255, 0.15);
+}
+
+.sci-fi-light {
+  --sci-fi-background: #f8fafc;
+  --sci-fi-surface: rgba(255, 255, 255, 0.85);
+  --sci-fi-text: #1e293b;
+  --sci-fi-text-secondary: #64748b;
+  --sci-fi-border: rgba(0, 240, 255, 0.25);
+}
+
+/* Animation toggles */
+.sci-fi-animations .sci-fi-glow,
+.sci-fi-animations .sci-fi-themed {
+  transition: all var(--sci-fi-transition-duration, 300ms) ease;
+}
+
+.sci-fi-animations .sci-fi-scanlines::before {
+  animation: scanlines-move 2s linear infinite;
+}
+
+/* Disable animations when reduced motion is preferred */
+.reduced-motion,
+.reduced-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Particle background */
+.sci-fi-particles {
+  position: relative;
+}
+
+.sci-fi-particles::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: 
+    radial-gradient(1px 1px at 20px 30px, rgba(0, 240, 255, 0.15), transparent),
+    radial-gradient(1px 1px at 40px 70px, rgba(112, 0, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 90px 40px, rgba(0, 255, 136, 0.1), transparent),
+    radial-gradient(1px 1px at 130px 80px, rgba(0, 240, 255, 0.1), transparent),
+    radial-gradient(1px 1px at 160px 30px, rgba(112, 0, 255, 0.15), transparent);
+  background-repeat: repeat;
+  background-size: 200px 100px;
+  animation: particles-float 20s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes particles-float {
+  0% { transform: translate(0, 0); }
+  100% { transform: translate(-200px, -100px); }
+}
+
+/* Grid background */
+.sci-fi-grid {
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Global scanlines */
+.sci-fi-scanlines-global::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 240, 255, 0.02) 2px,
+    rgba(0, 240, 255, 0.02) 4px
+  );
+  pointer-events: none;
+  z-index: 1000;
+  animation: global-scanlines 3s linear infinite;
+}
+
+@keyframes global-scanlines {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(4px); }
+}
+
+/* Mobile responsive adjustments */
+.sci-fi-mobile {
+  --sci-fi-font-small: 0.7rem;
+  --sci-fi-font-medium: 0.8rem;
+  --sci-fi-font-large: 0.9rem;
+}
+
+.sci-fi-mobile .sci-fi-glow {
+  box-shadow: 0 0 3px var(--glow-color, var(--sci-fi-glow));
+}
+
+.sci-fi-mobile .sci-fi-particles::before {
+  animation-duration: 30s;
+}
+
+/* Responsive panel layouts */
+@media (max-width: 768px) {
+  .sci-fi-card {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .quest-card-grid {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .mini-row {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .mini-row .theme-select,
+  .mini-row .theme-input {
+    width: 100%;
+  }
+  
+  .projectile-data-controls {
+    grid-template-columns: 1fr;
+  }
+  
+  .sync-config-box {
+    padding: 0.5rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .sci-fi-card {
+    padding: 0.5rem;
+  }
+  
+  .segment-card {
+    padding: 0.5rem;
+  }
+  
+  .property-field {
+    padding: 0.5rem;
+  }
+}
+
+/* Large screen optimizations */
+@media (min-width: 1200px) {
+  .quest-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  
+  .projectile-data-controls {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+}
+
+/* Ultra-wide screen layouts */
+@media (min-width: 1600px) {
+  .quest-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* High DPI display adjustments */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .sci-fi-glow {
+    box-shadow: 
+      0 0 2px var(--glow-color, var(--sci-fi-glow)),
+      0 0 4px var(--glow-color, var(--sci-fi-glow)),
+      0 0 6px var(--glow-color, var(--sci-fi-glow));
+  }
+  
+  .sci-fi-scanlines::before {
+    background-size: 100% 2px;
+  }
+}
+
+/* High contrast mode */
+.high-contrast {
+  --sci-fi-border: rgba(0, 240, 255, 0.8);
+  --sci-fi-glow: rgba(0, 240, 255, 0.6);
+}
+
+.high-contrast .sci-fi-glow {
+  box-shadow: 0 0 2px var(--glow-color, var(--sci-fi-glow));
+}
+
+/* Enhanced button styling */
+.sci-fi-btn {
+  background: linear-gradient(135deg, 
+    rgba(0, 240, 255, 0.1) 0%, 
+    rgba(0, 240, 255, 0.05) 100%);
+  border: 1px solid var(--sci-fi-border);
+  color: var(--sci-fi-text);
+  padding: 0.5rem 1rem;
+  font-family: var(--sci-fi-font-family);
+  font-size: var(--sci-fi-font-medium);
+  letter-spacing: var(--sci-fi-letter-spacing);
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--sci-fi-transition-duration, 300ms) ease;
+}
+
+.sci-fi-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent, 
+    rgba(0, 240, 255, 0.2), 
+    transparent);
+  transition: left 0.5s ease;
+}
+
+.sci-fi-btn:hover::before {
+  left: 100%;
+}
+
+.sci-fi-btn:hover {
+  border-color: var(--sci-fi-primary);
+  box-shadow: 0 0 10px var(--sci-fi-glow);
+  transform: translateY(-1px);
+}
+
+.sci-fi-btn:active {
+  transform: translateY(0);
+}
+
+/* Enhanced input styling */
+.sci-fi-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--sci-fi-border);
+  color: var(--sci-fi-text);
+  font-family: var(--sci-fi-font-family);
+  font-size: var(--sci-fi-font-medium);
+  padding: 0.5rem;
+  border-radius: 2px;
+  transition: all var(--sci-fi-transition-duration, 300ms) ease;
+  position: relative;
+}
+
+.sci-fi-input:focus {
+  border-color: var(--sci-fi-primary);
+  box-shadow: 0 0 8px var(--sci-fi-glow);
+  outline: none;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.sci-fi-input::placeholder {
+  color: var(--sci-fi-text-secondary);
+  opacity: 0.7;
+}

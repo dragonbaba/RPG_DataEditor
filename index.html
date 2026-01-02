@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/icon/icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:;"
+    />
+    <title>RPG数据拓展编辑器</title>
+    <style>
+      html {
+        background-color: #0a0e17;
+        color-scheme: dark;
+      }
+      body {
+        background-color: transparent;
+        color: #f3f4f6;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        min-height: 100vh;
+      }
+      .app-container {
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+      .app-container.loaded {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body class="text-gray-100 overflow-hidden">
+    <div
+      id="dynamicBackground"
+      class="fixed inset-0 pointer-events-none z-0"
+      style="background-color: #0a0e17"
+    >
+      <canvas
+        id="particleCanvas"
+        class="absolute inset-0 w-full h-full"
+      ></canvas>
+      <div id="scanlineOverlay" class="absolute inset-0 opacity-20"></div>
+      <div id="gridOverlay" class="absolute inset-0 opacity-10"></div>
+    </div>
+    <div class="app-container flex flex-col relative z-10" style="height: calc(100vh - 32px);">
+      <div class="main-content flex flex-1 overflow-hidden">
+        <div
+          id="leftPanel"
+          class="left-panel w-64 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800/90 backdrop-blur-sm"
+        >
+          <div class="panel-header px-4 py-3 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-cyan-400">项目列表</h2>
+          </div>
+          <div
+            class="left-panel-actions hidden px-2 py-2 flex gap-1 border-b border-gray-700"
+            id="projectActions"
+          >
+            <button
+              id="itemNewBtn"
+              class="action-btn small flex-1 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+            >
+              新建
+            </button>
+            <button
+              id="itemCopyBtn"
+              class="action-btn small flex-1 px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+            >
+              复制
+            </button>
+            <button
+              id="itemDeleteBtn"
+              class="action-btn small flex-1 px-2 py-1 text-xs bg-red-900 hover:bg-red-800 rounded"
+            >
+              删除
+            </button>
+            <button
+              id="itemSaveBtn"
+              class="action-btn small flex-1 px-2 py-1 text-xs bg-cyan-900 hover:bg-cyan-800 rounded"
+            >
+              保存
+            </button>
+          </div>
+          <div class="list-scroll-wrapper flex-1 overflow-y-auto">
+            <div id="itemList" class="item-list">
+              <div class="empty-state p-4 text-gray-500 text-center">
+                打开菜单选择文件
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="emptyStatePanel"
+          class="empty-state-panel flex-1 flex items-center justify-center bg-transparent"
+        >
+          <div class="empty-state-content text-center">
+            <div class="empty-state-icon text-6xl mb-4">📁</div>
+            <h2 class="text-2xl font-bold text-gray-300 mb-2">请选择文件</h2>
+            <p class="text-gray-500">
+              请通过菜单栏的“文件?-> “打开文件”来选择要编辑的数据文件
+            </p>
+          </div>
+        </div>
+        <div
+          class="middle-panel hidden w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800/90 backdrop-blur-sm"
+          id="scriptPanel"
+        >
+          <div class="panel-header px-4 py-3 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-cyan-400">脚本列表</h2>
+          </div>
+          <div class="list-scroll-wrapper flex-1 overflow-y-auto">
+            <div id="scriptList" class="script-list">
+              <div class="empty-state p-4 text-gray-500 text-center text-sm">
+                选择项目以查看脚本
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          class="middle-panel hidden w-80 flex-shrink-0 flex flex-col border-r border-gray-700 bg-gray-800/90 backdrop-blur-sm"
+          id="metaDataPanel"
+        >
+          <div class="panel-header px-4 py-3 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-cyan-400">元数据</h2>
+          </div>
+          <div class="list-scroll-wrapper flex-1 overflow-y-auto">
+            <div id="metaDataList" class="meta-data-list">
+              <div class="empty-state p-4 text-gray-500 text-center text-sm">
+                选择项目以查看元数据
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="codeEditorContainer"
+          class="code-editor-container hidden flex-1"
+        >
+          <div class="panel-header px-4 py-3 border-b border-gray-700">
+            <h2 class="text-lg font-semibold text-cyan-400">代码编辑</h2>
+          </div>
+          <div class="code-editor-wrapper">
+            <div id="codeEditor" class="code-editor"></div>
+          </div>
+          <div class="code-actions flex gap-2">
+            <button
+              id="saveCodeBtn"
+              class="save-btn px-3 py-1 text-sm bg-cyan-700 hover:bg-cyan-600 rounded"
+            >
+              保存代码
+            </button>
+            <button
+              id="clearCodeBtn"
+              class="clear-btn px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 rounded"
+            >
+              清空
+            </button>
+          </div>
+          <div
+            id="codeFilePath"
+            class="file-path px-4 py-2 text-xs text-gray-500 border-t border-gray-700"
+          >
+            项目：待选择
+          </div>
+        </div>
+        <div
+          id="propertyModePanel"
+          class="property-panel hidden flex-1 flex flex-col bg-gray-900/80 backdrop-blur-sm overflow-y-auto"
+        >
+          <div class="panel-header px-4 py-3 border-b border-gray-700 flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-cyan-400">属性定义</h2>
+            <button
+              id="savePropertiesBtn"
+              class="save-btn px-3 py-1 text-sm bg-cyan-700 hover:bg-cyan-600 rounded"
+            >
+              保存基础属性
+            </button>
+          </div>
+          <div
+            id="propertyModeSubtitle"
+            class="property-mode-subtitle px-4 py-2 text-sm text-gray-500"
+          >
+            请选择左侧项目以加载属性
+          </div>
+          
+          <!-- 基础属性区域 -->
+          <div class="base-attributes px-4 py-2">
+            <h3 class="text-sm font-medium text-gray-300 mb-2">基础属性</h3>
+            <div
+              id="baseAttributeList"
+              class="base-attribute-list grid grid-cols-4 gap-2"
+            >
+              <!-- 最大生命值 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">最大生命值</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="mhp"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">生命波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="mhp"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+              
+              <!-- 最大魔法值 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">最大魔法值</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="mmp"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">魔法波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="mmp"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+              
+              <!-- 攻击力 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">攻击力</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="atk"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">攻击波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="atk"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+              
+              <!-- 防御力 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">防御力</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="def"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">防御波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="def"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+              
+              <!-- 魔法攻击力 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">魔法攻击力</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="mat"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">魔攻波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="mat"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+              
+              <!-- 魔法防御力 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">魔法防御力</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="mdf"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">魔防波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="mdf"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+              
+              <!-- 速度 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">速度</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="agi"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">速度波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="agi"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+              
+              <!-- 幸运 -->
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">幸运</label>
+                <input
+                  type="number"
+                  class="base-attribute-input theme-input w-full text-xs"
+                  data-key="luk"
+                  placeholder="整数"
+                  step="1"
+                />
+              </div>
+              <div class="property-field">
+                <label class="attribute-label sci-fi-label text-xs">幸运波动</label>
+                <input
+                  type="number"
+                  class="base-attribute-float-input theme-input w-full text-xs"
+                  data-key="luk"
+                  placeholder="数字"
+                  step="0.1"
+                />
+              </div>
+            </div>
+          </div>
+          
+          <!-- 自定义属性区域 -->
+          <div class="custom-attributes px-4 py-2 flex-1 flex flex-col min-h-0">
+            <div
+              class="custom-attributes-header flex justify-between items-center mb-2 flex-shrink-0"
+            >
+              <span class="text-sm font-medium text-gray-300">自定义属性</span>
+              <div class="flex gap-2">
+                <button
+                  id="addCustomPropertyBtn"
+                  class="action-btn small px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600 rounded"
+                >
+                  添加
+                </button>
+                <button
+                  id="saveCustomPropertyBtn"
+                  class="save-btn px-2 py-1 text-xs bg-cyan-700 hover:bg-cyan-600 rounded"
+                >
+                  保存自定义
+                </button>
+              </div>
+            </div>
+            <div id="customAttributeList" class="custom-attribute-list flex-1 overflow-y-auto min-h-0">
+              <div class="custom-empty text-sm text-gray-500">
+                请选择项目或点击添加自定义属性
+              </div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="noteModePanel"
+          class="note-panel hidden flex-1 flex flex-col bg-gray-900/80 backdrop-blur-sm"
+        >
+          <div class="panel-header px-4 py-3 border-b border-gray-700 flex justify-between items-center">
+            <h2 class="text-lg font-semibold text-cyan-400">备注编辑</h2>
+          </div>
+          <div
+            id="noteModeSubtitle"
+            class="note-mode-subtitle px-4 py-2 text-sm text-gray-500"
+          >
+            请选择左侧项目以编辑备注
+          </div>
+          
+          <!-- 左右均分的编辑区域 -->
+          <div class="note-content-wrapper flex-1 flex gap-4 p-4 min-h-0">
+            <!-- 左侧：附加描述 -->
+            <div class="note-description-section flex-1 flex flex-col min-h-0">
+              <div class="flex justify-between items-center mb-2">
+                <label
+                  for="noteDescription"
+                  class="note-description-label text-sm font-medium text-gray-300"
+                >附加描述</label>
+                <button
+                  id="saveDescriptionBtn"
+                  class="action-btn small px-2 py-1 text-xs bg-cyan-700 hover:bg-cyan-600 rounded"
+                >
+                  保存描述
+                </button>
+              </div>
+              <textarea
+                id="noteDescription"
+                class="note-description flex-1 p-3 bg-gray-800 border border-gray-700 rounded text-sm resize-none"
+                placeholder="输入描述（保存后写入 description 数组）"
+                spellcheck="false"
+              ></textarea>
+            </div>
+            
+            <!-- 右侧：备注内容 -->
+            <div class="note-editor-section flex-1 flex flex-col min-h-0">
+              <div class="flex justify-between items-center mb-2">
+                <label
+                  for="noteEditor"
+                  class="note-editor-label text-sm font-medium text-gray-300"
+                >备注内容</label>
+                <button
+                  id="saveNoteBtn"
+                  class="action-btn small px-2 py-1 text-xs bg-cyan-700 hover:bg-cyan-600 rounded"
+                >
+                  保存备注
+                </button>
+              </div>
+              <textarea
+                id="noteEditor"
+                class="note-editor flex-1 p-3 bg-gray-800 border border-gray-700 rounded text-sm resize-none"
+                placeholder="请输入备注内容，支持换行..."
+                spellcheck="false"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+        <div
+          id="projectileModePanel"
+          class="projectile-panel hidden flex-1 flex flex-col bg-gray-900/80 backdrop-blur-sm"
+        >
+          <div class="projectile-panel-scroll flex-1 overflow-y-auto p-4">
+            <div class="projectile-data-section sci-fi-card">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">数据文件</h3>
+              <div class="projectile-data-controls grid grid-cols-3 gap-3">
+                <div class="projectile-file-control flex items-center gap-2">
+                  <select
+                    id="projectileAnimationFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="projectileAnimationLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="animation"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="projectileAnimationPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="animation"
+                  >
+                    选择
+                  </button>
+                  <span
+                    id="projectileAnimationStatus"
+                    class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="projectile-file-control flex items-center gap-2">
+                  <select
+                    id="projectileEnemyFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="projectileEnemyLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="enemy"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="projectileEnemyPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="enemy"
+                  >
+                    选择
+                  </button>
+                  <span id="projectileEnemyStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="projectile-file-control flex items-center gap-2">
+                  <select
+                    id="projectileActorFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="projectileActorLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="actor"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="projectileActorPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="actor"
+                  >
+                    选择
+                  </button>
+                  <span id="projectileActorStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="projectile-file-control flex items-center gap-2">
+                  <select
+                    id="projectileWeaponFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="projectileWeaponLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="weapon"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="projectileWeaponPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="weapon"
+                  >
+                    选择
+                  </button>
+                  <span
+                    id="projectileWeaponStatus"
+                    class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="projectile-file-control flex items-center gap-2">
+                  <select
+                    id="projectileSkillFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="projectileSkillLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="skill"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="projectileSkillPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="skill"
+                  >
+                    选择
+                  </button>
+                  <span id="projectileSkillStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+              </div>
+            </div>
+            <!-- Preview Section -->
+            <div class="projectile-preview-section mb-4 flex gap-4 p-4">
+              <!-- Left: Canvas -->
+              <div class="flex-1 flex flex-col">
+                <h4 class="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2">
+                  <span class="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></span>
+                  弹道预览
+                </h4>
+                <div
+                  id="projectilePreviewContainer"
+                  class="projectile-preview-container w-full h-64 rounded relative"
+                ></div>
+                <div
+                  class="projectile-controls mt-3"
+                >
+                  <div class="flex gap-3 items-center flex-wrap">
+                    <button
+                      id="projectilePlayTestBtn"
+                      class="action-btn px-5 py-2.5 text-sm rounded flex items-center justify-center gap-2 flex-1 min-w-32"
+                    >
+                      <span class="text-lg">▶</span> 播放预览
+                    </button>
+                    <button
+                      id="projectilePauseBtn"
+                      class="action-btn px-3 py-2 text-sm rounded flex items-center justify-center gap-1 min-w-20"
+                      disabled
+                    >
+                      <span class="text-sm">⏸</span> 暂停
+                    </button>
+                    <button
+                      id="projectileStopBtn"
+                      class="action-btn px-3 py-2 text-sm rounded flex items-center justify-center gap-1 min-w-20"
+                      disabled
+                    >
+                      <span class="text-sm">⏹</span> 停止
+                    </button>
+                  </div>
+                  
+                  <div class="flex gap-3 items-center justify-between mt-2 flex-wrap">
+                    <div class="flex items-center gap-2 bg-black/30 rounded-lg px-3 py-1">
+                      <button
+                        id="projectileStepBackBtn"
+                        class="action-btn small px-2 py-1 text-xs rounded"
+                        disabled
+                      >
+                        ◀
+                      </button>
+                      <span id="projectileFrameInfo" class="frame-info text-xs min-w-16 text-center">0/0</span>
+                      <button
+                        id="projectileStepForwardBtn"
+                        class="action-btn small px-2 py-1 text-xs rounded"
+                        disabled
+                      >
+                        ▶
+                      </button>
+                    </div>
+                    
+                    <!-- 播放速率控制 -->
+                    <div class="flex items-center gap-2 bg-black/30 rounded-lg px-3 py-1">
+                      <label class="text-xs text-gray-400">速率:</label>
+                      <select id="projectilePlaybackRate" class="bg-black/50 border border-gray-600 rounded px-2 py-1 text-xs">
+                        <option value="0.25">0.25x</option>
+                        <option value="0.5">0.5x</option>
+                        <option value="1" selected>1x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2x</option>
+                        <option value="3">3x</option>
+                      </select>
+                    </div>
+                    
+                    <span
+                      id="projectilePreviewStatus"
+                      class="text-xs text-cyan-400 bg-black/50 px-2 py-1 rounded border border-cyan-400/30 flex-shrink-0"
+                      >准备就绪</span
+                    >
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Sync Controls Panel -->
+              <div class="w-72 preview-sync-panel flex flex-col gap-3">
+                <h3 class="sync-section-title">预览同步</h3>
+
+                <!-- Emitter Config -->
+                <div class="sync-config-box emitter-box">
+                  <div class="sync-config-label emitter">
+                    <span class="icon"></span>
+                    发射者
+                  </div>
+                  <div class="flex flex-col gap-2">
+                    <select
+                      id="projectileEmitterTypeSelect"
+                      class="theme-select w-full"
+                    >
+                      <option value="none">-- 选择类型 --</option>
+                      <option value="actor">角色</option>
+                      <option value="enemy">敌人</option>
+                    </select>
+                    <select
+                      id="projectileEmitterIdSelect"
+                      class="theme-select w-full"
+                      disabled
+                    >
+                      <option value="">选择数据...</option>
+                    </select>
+                    <!-- 武器选择（仅我方角色显示） -->
+                    <select
+                      id="projectileEmitterWeaponSelect"
+                      class="theme-select w-full"
+                      style="display: none;"
+                    >
+                      <option value="">选择武器...</option>
+                    </select>
+                    <!-- 技能选择（仅敌人显示） -->
+                    <select
+                      id="projectileEmitterSkillSelect"
+                      class="theme-select w-full"
+                      style="display: none;"
+                    >
+                      <option value="">选择技能...</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Target Config -->
+                <div class="sync-config-box target-box">
+                  <div class="sync-config-label target">
+                    <span class="icon"></span>
+                    目标
+                  </div>
+                  <div class="flex flex-col gap-2">
+                    <select
+                      id="projectileTargetTypeSelect"
+                      class="theme-select w-full"
+                    >
+                      <option value="none">-- 选择类型 --</option>
+                      <option value="enemy">敌人</option>
+                      <option value="actor">角色</option>
+                    </select>
+                    <select
+                      id="projectileTargetIdSelect"
+                      class="theme-select w-full"
+                      disabled
+                    >
+                      <option value="">选择数据...</option>
+                    </select>
+                    <!-- 技能选择（仅目标敌人显示） -->
+                    <select
+                      id="projectileTargetSkillSelect"
+                      class="theme-select w-full"
+                      style="display: none;"
+                    >
+                      <option value="">选择技能...</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="projectile-template-section sci-fi-card">
+              <div
+                class="projectile-template-header flex justify-between items-center mb-3"
+              >
+                <span class="text-sm font-medium text-gray-300">弹道模板</span>
+                <div class="flex gap-2">
+                  <button
+                    id="projectileCreateTemplateBtn"
+                    class="sci-fi-btn small px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                  >
+                    新建
+                  </button>
+                  <button
+                    id="projectileSaveTemplateBtn"
+                    class="sci-fi-btn small px-2 py-1 text-xs bg-cyan-700 hover:bg-cyan-600"
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
+              <div class="projectile-template-grid grid grid-cols-2 gap-2">
+                <label class="block">
+                  <span class="sci-fi-label">名称</span>
+                  <input
+                    id="projectileTemplateName"
+                    type="text"
+                    class="theme-input w-full"
+                    placeholder="基础弹道"
+                  />
+                </label>
+              </div>
+            </div>
+            <div class="projectile-animation-select-section sci-fi-card">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">动画选择</h3>
+              <div class="grid grid-cols-3 gap-3">
+                <label class="block">
+                  <span class="sci-fi-label">起始动画</span>
+                  <select
+                    id="projectileStartAnimationSelect"
+                    class="theme-select w-full"
+                  ></select>
+                </label>
+                <label class="block">
+                  <span class="sci-fi-label">发射动画</span>
+                  <select
+                    id="projectileLaunchAnimationSelect"
+                    class="theme-select w-full"
+                  ></select>
+                </label>
+                <label class="block">
+                  <span class="sci-fi-label">结束动画</span>
+                  <select
+                    id="projectileEndAnimationSelect"
+                    class="theme-select w-full"
+                  ></select>
+                </label>
+              </div>
+            </div>
+            <div class="projectile-offset-section sci-fi-card">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">发射偏移</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div class="actor-offset">
+                  <span class="sci-fi-label block mb-2">角色发射偏移</span>
+                  <div class="flex gap-2">
+                    <select
+                      id="projectileActorSelect"
+                      class="theme-select flex-1"
+                    ></select>
+                    <select
+                      id="projectileWeaponOffsetSelect"
+                      class="theme-select flex-1"
+                    ></select>
+                    <input
+                      id="projectileActorOffsetX"
+                      type="number"
+                      class="theme-input w-16"
+                      placeholder="X"
+                    />
+                    <input
+                      id="projectileActorOffsetY"
+                      type="number"
+                      class="theme-input w-16"
+                      placeholder="Y"
+                    />
+                    <button
+                      id="projectileActorOffsetSaveBtn"
+                      class="sci-fi-btn px-2 py-1 text-xs bg-cyan-700 hover:bg-cyan-600"
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+                <div class="enemy-offset">
+                  <span class="sci-fi-label block mb-2">敌人目标偏移</span>
+                  <div class="flex gap-2">
+                    <select
+                      id="projectileEnemySelect"
+                      class="theme-select flex-1"
+                    ></select>
+                    <select
+                      id="projectileSkillSelect"
+                      class="theme-select flex-1"
+                    ></select>
+                    <input
+                      id="projectileEnemyOffsetX"
+                      type="number"
+                      class="theme-input w-16"
+                      placeholder="X"
+                    />
+                    <input
+                      id="projectileEnemyOffsetY"
+                      type="number"
+                      class="theme-input w-16"
+                      placeholder="Y"
+                    />
+                    <button
+                      id="projectileEnemyOffsetSaveBtn"
+                      class="sci-fi-btn px-2 py-1 text-xs bg-cyan-700 hover:bg-cyan-600"
+                    >
+                      保存
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="projectile-trajectory-section sci-fi-card">
+              <div
+                class="projectile-trajectory-header flex justify-between items-center mb-3"
+              >
+                <span class="text-sm font-medium text-gray-300"
+                  >弹道轨迹节点</span
+                >
+                <div class="projectile-segment-actions flex gap-2">
+                  <button
+                    id="projectileAddSegmentBtn"
+                    class="sci-fi-btn tiny px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                  >
+                    新增节点
+                  </button>
+                  <button
+                    id="projectileClearSegmentsBtn"
+                    class="sci-fi-btn tiny px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                  >
+                    清空节点
+                  </button>
+                </div>
+              </div>
+              <div
+                id="projectileSegmentList"
+                class="projectile-segment-list space-y-2"
+              ></div>
+            </div>
+          </div>
+        </div>
+        <div
+          id="questModePanel"
+          class="quest-panel hidden flex-1 flex flex-col bg-gray-900/80 backdrop-blur-sm"
+        >
+          <div class="quest-panel-scroll flex-1 overflow-y-auto p-4">
+            <!-- Quest panel content will be dynamically generated -->
+            
+            <div class="quest-data-section sci-fi-card">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">数据文件</h3>
+              <div class="quest-data-status text-xs text-gray-500 mb-3">
+                <span id="questDataStatus">未选择</span>
+              </div>
+              <div class="quest-data-controls grid grid-cols-2 gap-3">
+                <div class="quest-file-control flex items-center gap-2">
+                  <select
+                    id="questSystemFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="questSystemLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="system"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="questSystemPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="system"
+                  >
+                    选择
+                  </button>
+                  <span id="questSystemStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="quest-file-control flex items-center gap-2">
+                  <select
+                    id="questItemFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="questItemLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="item"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="questItemPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="item"
+                  >
+                    选择
+                  </button>
+                  <span id="questItemStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="quest-file-control flex items-center gap-2">
+                  <select
+                    id="questWeaponFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="questWeaponLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="weapon"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="questWeaponPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="weapon"
+                  >
+                    选择
+                  </button>
+                  <span id="questWeaponStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="quest-file-control flex items-center gap-2">
+                  <select
+                    id="questArmorFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="questArmorLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="armor"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="questArmorPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="armor"
+                  >
+                    选择
+                  </button>
+                  <span id="questArmorStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="quest-file-control flex items-center gap-2">
+                  <select
+                    id="questEnemyFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="questEnemyLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="enemy"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="questEnemyPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="enemy"
+                  >
+                    选择
+                  </button>
+                  <span id="questEnemyStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+                <div class="quest-file-control flex items-center gap-2">
+                  <select
+                    id="questActorFileSelect"
+                    class="theme-select w-full"
+                  ></select>
+                  <button
+                    id="questActorLoadBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="actor"
+                  >
+                    加载
+                  </button>
+                  <button
+                    id="questActorPickBtn"
+                    class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    data-type="actor"
+                  >
+                    选择
+                  </button>
+                  <span id="questActorStatus" class="text-xs text-gray-500"
+                    >未加载</span
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="quest-basic-section sci-fi-card">
+              <h3 class="text-sm font-medium text-gray-300 mb-3">基本信息</h3>
+              <div class="grid grid-cols-2 gap-3">
+                <label class="block">
+                  <span class="sci-fi-label">任务标题</span>
+                  <input
+                    id="questTitleInput"
+                    type="text"
+                    class="theme-input w-full"
+                    placeholder="任务标题"
+                  />
+                </label>
+                <label class="block">
+                  <span class="sci-fi-label">任务发布者</span>
+                  <input
+                    id="questGiverInput"
+                    type="text"
+                    class="theme-input w-full"
+                    placeholder="NPC名称"
+                  />
+                </label>
+                <label class="flex items-center gap-2 mt-4">
+                  <input
+                    id="questCategoryInput"
+                    type="checkbox"
+                    class="rounded bg-gray-700 border-gray-600"
+                  />
+                  <span class="text-xs text-gray-400">主线任务</span>
+                </label>
+                <label class="flex items-center gap-2 mt-4">
+                  <input
+                    id="questRepeatableInput"
+                    type="checkbox"
+                    class="rounded bg-gray-700 border-gray-600"
+                  />
+                  <span class="text-xs text-gray-400">可重复</span>
+                </label>
+                <label class="block">
+                  <span class="sci-fi-label">难度</span>
+                  <select
+                    id="questDifficultySelect"
+                    class="theme-select w-full"
+                  ></select>
+                </label>
+              </div>
+              <label class="block mt-3">
+                <span class="sci-fi-label">任务描述</span>
+                <textarea
+                  id="questDescriptionInput"
+                  class="theme-input w-full h-20 resize-none"
+                  placeholder="任务描述..."
+                ></textarea>
+              </label>
+            </div>
+            <div class="quest-actions-section sci-fi-card">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-medium text-gray-300">
+                  任务开始/完成事件
+                </h3>
+              </div>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="sci-fi-label">开始开关</span>
+                    <button
+                      id="questAddStartSwitchBtn"
+                      class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    >
+                      添加
+                    </button>
+                  </div>
+                  <div id="questStartSwitchList" class="space-y-1"></div>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="sci-fi-label">完成开关</span>
+                    <button
+                      id="questAddFinishSwitchBtn"
+                      class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    >
+                      添加
+                    </button>
+                  </div>
+                  <div id="questFinishSwitchList" class="space-y-1"></div>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="sci-fi-label">开始变量</span>
+                    <button
+                      id="questAddStartVariableBtn"
+                      class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    >
+                      添加
+                    </button>
+                  </div>
+                  <div id="questStartVariableList" class="space-y-1"></div>
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="sci-fi-label">完成变量</span>
+                    <button
+                      id="questAddFinishVariableBtn"
+                      class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                    >
+                      添加
+                    </button>
+                  </div>
+                  <div id="questFinishVariableList" class="space-y-1"></div>
+                </div>
+              </div>
+            </div>
+            <div class="quest-objectives-section sci-fi-card">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-medium text-gray-300">任务目标</h3>
+                <button
+                  id="questAddObjectiveBtn"
+                  class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                >
+                  添加目标
+                </button>
+              </div>
+              <div id="questObjectiveList" class="space-y-2"></div>
+            </div>
+            <div class="quest-rewards-section sci-fi-card">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-medium text-gray-300">任务奖励</h3>
+                <button
+                  id="questAddRewardBtn"
+                  class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                >
+                  添加奖励
+                </button>
+              </div>
+              <div id="questRewardList" class="space-y-2"></div>
+            </div>
+            <div class="quest-requirements-section sci-fi-card">
+              <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-medium text-gray-300">前置需求</h3>
+                <button
+                  id="questAddRequirementBtn"
+                  class="sci-fi-btn px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                >
+                  添加需求
+                </button>
+              </div>
+              <div id="questRequirementList" class="space-y-2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 状态栏移到容器外部，占据全屏宽度 -->
+    <div
+      class="status-bar flex justify-between items-center px-4 py-2 bg-gray-800/90 backdrop-blur-sm border-t border-gray-700 text-xs fixed bottom-0 left-0 right-0 z-20"
+    >
+      <span id="statusText" class="status-text text-gray-400">就绪</span>
+      <span id="statsInfo" class="stats-info text-gray-500">
+        <span id="characterCount">0</span> 个字 |
+        <span id="lineCount">0</span> 行
+      </span>
+    </div>
+    </div>
+    <div
+      id="inputDialog"
+      class="input-dialog hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+    >
+      <div
+        class="input-dialog-content bg-gray-800 rounded-lg shadow-xl w-96 border border-gray-700"
+      >
+        <div class="input-dialog-header px-4 py-3 border-b border-gray-700">
+          <h3 id="inputDialogTitle" class="text-lg font-semibold text-cyan-400">
+            输入
+          </h3>
+        </div>
+        <div class="input-dialog-body px-4 py-4">
+          <p id="inputDialogMessage" class="text-sm text-gray-300 mb-3"></p>
+          <input
+            type="text"
+            id="inputDialogInput"
+            class="input-dialog-input w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm"
+            placeholder="请输入..."
+          />
+        </div>
+        <div
+          class="input-dialog-actions px-4 py-3 border-t border-gray-700 flex justify-end gap-2"
+        >
+          <button
+            id="inputDialogCancel"
+            class="input-dialog-cancel px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded"
+          >
+            取消
+          </button>
+          <button
+            id="inputDialogConfirm"
+            class="input-dialog-confirm px-4 py-2 text-sm bg-cyan-700 hover:bg-cyan-600 rounded"
+          >
+            确定
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      id="loadingIndicator"
+      class="loading-indicator hidden fixed inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 z-50"
+    >
+      <div
+        class="spinner w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin"
+      ></div>
+      <p id="loadingText" class="mt-4 text-gray-300">加载?..</p>
+    </div>
+    <div
+      id="historyFilesDialog"
+      class="history-files-dialog hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+    >
+      <div
+        class="history-files-dialog-content bg-gray-800 rounded-lg shadow-xl w-96 max-h-96 border border-gray-700"
+      >
+        <div
+          class="history-files-dialog-header px-4 py-3 border-b border-gray-700 flex justify-between items-center"
+        >
+          <h3 class="text-lg font-semibold text-cyan-400">历史文件</h3>
+          <button
+            id="historyFilesDialogClose"
+            class="history-files-dialog-close text-gray-400 hover:text-gray-200 text-xl"
+          >
+            ×
+          </button>
+        </div>
+        <div class="history-files-dialog-body overflow-y-auto max-h-64">
+          <div id="historyFilesList" class="history-files-list"></div>
+        </div>
+      </div>
+    </div>
+    <div
+      id="questCopyDialog"
+      class="quest-copy-dialog hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+    >
+      <div
+        class="quest-copy-dialog-content bg-gray-800 rounded-lg shadow-xl w-96 max-h-96 border border-gray-700"
+      >
+        <div
+          class="quest-copy-dialog-header px-4 py-3 border-b border-gray-700 flex justify-between items-center"
+        >
+          <h3 class="text-lg font-semibold text-cyan-400">选择要复制的任务</h3>
+          <button
+            id="questCopyDialogClose"
+            class="quest-copy-dialog-close text-gray-400 hover:text-gray-200 text-xl"
+          >
+            ×
+          </button>
+        </div>
+        <div class="quest-copy-dialog-body overflow-y-auto max-h-64">
+          <div id="questCopyDialogList" class="quest-copy-dialog-list"></div>
+        </div>
+        <div
+          class="quest-copy-dialog-footer px-4 py-3 border-t border-gray-700 flex justify-end gap-2"
+        >
+          <button
+            id="questCopyDialogConfirm"
+            class="px-4 py-2 text-sm bg-cyan-700 hover:bg-cyan-600 rounded"
+          >
+            复制选中
+          </button>
+          <button
+            id="questCopyDialogCancel"
+            class="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      id="themeSettingsDialog"
+      class="theme-settings-dialog hidden fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+    >
+      <div
+        class="theme-settings-content bg-gray-800 rounded-lg shadow-xl w-96 border border-gray-700"
+      >
+        <div
+          class="theme-settings-header px-4 py-3 border-b border-gray-700 flex justify-between items-center"
+        >
+          <h3 class="text-lg font-semibold text-cyan-400">主题设置</h3>
+          <button
+            id="themeSettingsClose"
+            class="text-gray-400 hover:text-gray-200 text-xl"
+          >
+            ×
+          </button>
+        </div>
+        <div class="theme-settings-body px-4 py-4 space-y-4">
+          <div class="preset-option">
+            <label class="block text-sm font-medium text-gray-300 mb-2"
+              >主题预设</label
+            >
+            <div class="grid grid-cols-3 gap-2">
+              <button
+                id="presetCyberpunkBtn"
+                class="preset-btn px-2 py-2 text-xs bg-gray-700 hover:bg-gray-600 rounded border-2 border-transparent"
+                title="赛博朋克"
+              >
+                赛博朋克
+              </button>
+              <button
+                id="presetMinimalBtn"
+                class="preset-btn px-2 py-2 text-xs bg-gray-700 hover:bg-gray-600 rounded border-2 border-transparent"
+                title="极简"
+              >
+                极简
+              </button>
+              <button
+                id="presetHighContrastBtn"
+                class="preset-btn px-2 py-2 text-xs bg-gray-700 hover:bg-gray-600 rounded border-2 border-transparent"
+                title="高对比度"
+              >
+                高对比度
+              </button>
+            </div>
+          </div>
+          <div class="theme-option">
+            <label class="block text-sm font-medium text-gray-300 mb-2"
+              >主题模式</label
+            >
+            <div class="flex gap-2">
+              <button
+                id="themeDarkBtn"
+                class="theme-btn flex-1 px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded border-2 border-transparent"
+              >
+                深色
+              </button>
+              <button
+                id="themeLightBtn"
+                class="theme-btn flex-1 px-3 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded border-2 border-transparent"
+              >
+                浅色
+              </button>
+            </div>
+          </div>
+          <div id="themeAccentSection" class="accent-option">
+            <label class="block text-sm font-medium text-gray-300 mb-2"
+              >粒子颜色</label
+            >
+            <div class="grid grid-cols-4 gap-2">
+              <button
+                id="accentCyanBtn"
+                class="accent-btn w-full h-8 rounded border-2 border-transparent"
+                style="background: linear-gradient(135deg, #00d4ff, #0099cc)"
+                title="青色"
+              ></button>
+              <button
+                id="accentMagentaBtn"
+                class="accent-btn w-full h-8 rounded border-2 border-transparent"
+                style="background: linear-gradient(135deg, #ff00ff, #cc00cc)"
+                title="品红"
+              ></button>
+              <button
+                id="accentGreenBtn"
+                class="accent-btn w-full h-8 rounded border-2 border-transparent"
+                style="background: linear-gradient(135deg, #00ff88, #00cc66)"
+                title="绿色"
+              ></button>
+              <button
+                id="accentOrangeBtn"
+                class="accent-btn w-full h-8 rounded border-2 border-transparent"
+                style="background: linear-gradient(135deg, #ff8800, #cc6600)"
+                title="橙色"
+              ></button>
+            </div>
+          </div>
+          <div class="animation-option">
+            <label class="flex items-center justify-between">
+              <span class="text-sm font-medium text-gray-300">背景动画</span>
+              <input
+                id="animationsToggle"
+                type="checkbox"
+                class="w-5 h-5 rounded bg-gray-700 border-gray-600 text-cyan-500 focus:ring-cyan-500"
+                checked
+              />
+            </label>
+            <p class="text-xs text-gray-500 mt-1">减少间距和内边距</p>
+          </div>
+          <div class="font-size-option">
+            <label class="block text-sm font-medium text-gray-300 mb-2"
+              >字体大小</label
+            >
+            <select
+              id="fontSizeSelect"
+              class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm text-gray-200"
+            >
+              <option value="small">小</option>
+              <option value="medium" selected>中</option>
+              <option value="large">大</option>
+            </select>
+          </div>
+          <div class="compact-option">
+            <label class="flex items-center justify-between">
+              <span class="text-sm font-medium text-gray-300">紧凑模式</span>
+              <input
+                id="compactModeToggle"
+                type="checkbox"
+                class="w-5 h-5 rounded bg-gray-700 border-gray-600 text-cyan-500 focus:ring-cyan-500"
+              />
+            </label>
+            <p class="text-xs text-gray-500 mt-1">减少间距和内边距</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="errorOverlay" class="error-boundary-fallback hidden">
+      <div class="error-boundary-content">
+        <div class="error-boundary-icon">⚠️</div>
+        <div class="error-boundary-title">发生错误</div>
+        <div id="errorOverlayMessage" class="error-boundary-message"></div>
+        <details class="error-boundary-details">
+          <summary>查看错误堆栈</summary>
+          <pre id="errorOverlayStack" class="error-boundary-stack"></pre>
+        </details>
+        <div class="error-boundary-actions">
+          <button id="errorOverlayCopy" class="save-btn px-4 py-2">
+            复制错误堆栈
+          </button>
+          <button id="errorOverlayReload" class="clear-btn px-4 py-2">
+            重新加载
+          </button>
+        </div>
+      </div>
+    </div>
+    <div id="toastContainer" class="fixed top-4 right-4 z-50 space-y-2"></div>
+
+    <!-- Quest Editor Templates -->
+    <template id="quest-switch-row">
+      <div class="mini-row">
+        <select class="switch-select theme-select"></select>
+        <select class="switch-value theme-select">
+          <option value="true">开启</option>
+          <option value="false">关闭</option>
+        </select>
+        <button class="icon-btn mini-row-remove" title="删除">×</button>
+      </div>
+    </template>
+
+    <template id="quest-variable-row">
+      <div class="mini-row variable-row">
+        <select class="variable-select theme-select"></select>
+        <select class="variable-op theme-select">
+          <option value="+">+</option>
+          <option value="-">-</option>
+          <option value="*">*</option>
+          <option value="/">/</option>
+          <option value="=">=</option>
+        </select>
+        <input type="number" class="variable-value theme-input" value="0" />
+        <button class="icon-btn mini-row-remove" title="删除">×</button>
+      </div>
+    </template>
+
+    <template id="quest-requirement-card">
+      <div class="quest-card-header">
+        <select class="req-type theme-select"></select>
+        <button class="icon-btn remove-card" title="删除">×</button>
+      </div>
+      <div class="quest-card-grid req-grid"></div>
+    </template>
+
+    <template id="quest-objective-card">
+      <div class="quest-card-header">
+        <select class="obj-type theme-select"></select>
+        <label class="checkbox flex items-center gap-2 text-xs text-gray-400">
+          <input
+            type="checkbox"
+            class="obj-calc-type rounded bg-gray-700 border-gray-600"
+            checked
+          />
+          累计获取
+        </label>
+        <button class="icon-btn remove-card" title="删除">×</button>
+      </div>
+      <div class="quest-card-grid obj-grid"></div>
+      <div class="quest-card-actions mt-2 grid grid-cols-2 gap-2">
+        <div class="mini-group">
+          <div class="mini-header">
+            <span>完成后开关</span>
+            <button type="button" class="mini-add obj-switch-add">+</button>
+          </div>
+          <div class="mini-list obj-switch-list" data-obj-list="switches"></div>
+        </div>
+        <div class="mini-group">
+          <div class="mini-header">
+            <span>完成后变量</span>
+            <button type="button" class="mini-add obj-variable-add">+</button>
+          </div>
+          <div
+            class="mini-list obj-variable-list"
+            data-obj-list="variables"
+          ></div>
+        </div>
+      </div>
+    </template>
+
+    <template id="quest-reward-card">
+      <div class="quest-card-header">
+        <select class="rew-type theme-select"></select>
+        <button class="icon-btn remove-card" title="删除">×</button>
+      </div>
+      <div class="quest-card-grid rew-grid"></div>
+    </template>
+
+    <!-- Projectile Editor Templates -->
+    <template id="projectile-segment-card">
+      <div class="flex gap-2 mb-2">
+        <div class="flex-1">
+          <span class="sci-fi-label">目标 X (Target X)</span>
+          <input
+            type="number"
+            class="segment-target-x theme-input w-full"
+            step="1"
+          />
+        </div>
+        <div class="flex-1">
+          <span class="sci-fi-label">目标 Y (Target Y)</span>
+          <input
+            type="number"
+            class="segment-target-y theme-input w-full"
+            step="1"
+          />
+        </div>
+      </div>
+      <div class="flex gap-2 mb-2">
+        <div class="flex-1">
+          <span class="sci-fi-label">X 缓动 (Easing)</span>
+          <select class="segment-ease-x theme-select w-full"></select>
+        </div>
+        <div class="flex-1">
+          <span class="sci-fi-label">Y 缓动 (Easing)</span>
+          <select class="segment-ease-y theme-select w-full"></select>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 mb-2">
+        <div class="flex-1">
+          <span class="sci-fi-label">持续帧数 (Duration)</span>
+          <input
+            type="number"
+            class="segment-duration theme-input w-full"
+            step="1"
+          />
+        </div>
+      </div>
+      <div class="flex justify-end">
+        <button
+          type="button"
+          class="remove-segment-btn text-red-400 hover:text-red-300 text-sm px-2 py-1 uppercase tracking-wide"
+        >
+          删除
+        </button>
+      </div>
+    </template>
+
+    <!-- Property Editor Templates (保留用于兼容性，但主要逻辑已改为动态创建) -->
+    <template id="custom-property-card">
+      <div class="flex gap-2 mb-2">
+        <div class="custom-field-wrapper flex-1">
+          <span class="attribute-label sci-fi-label">属性名</span>
+          <input
+            type="text"
+            class="custom-attribute-name theme-input w-full"
+            placeholder="属性名"
+          />
+        </div>
+        <div class="custom-field-wrapper flex-1">
+          <span class="attribute-label sci-fi-label">缩写</span>
+          <input
+            type="text"
+            class="custom-attribute-symbol theme-input w-full"
+            placeholder="缩写"
+          />
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <div class="custom-field-wrapper flex-1">
+          <span class="attribute-label sci-fi-label">值</span>
+          <input
+            type="number"
+            class="custom-attribute-value theme-input w-full"
+            step="1"
+          />
+        </div>
+        <div class="custom-field-wrapper flex-1">
+          <span class="attribute-label sci-fi-label">波动</span>
+          <input
+            type="number"
+            class="custom-attribute-float theme-input w-full"
+            step="0.1"
+          />
+        </div>
+      </div>
+      <div class="custom-attribute-actions mt-2 flex justify-end">
+        <button
+          type="button"
+          class="remove-btn text-red-400 hover:text-red-300 text-sm px-2 py-1 uppercase tracking-wide"
+        >
+          删除
+        </button>
+      </div>
+    </template>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
