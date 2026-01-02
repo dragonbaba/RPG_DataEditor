@@ -34,7 +34,9 @@ module.exports = async function () {
             'data/**/*',
             'icon/**/*',
             'plugins/**/*',
+            'node_modules/electron-updater/**/*',
             '!node_modules/**/*',
+            'node_modules/electron-updater/**/*',
             '!src/**/*',
             '!.kiro/**/*',
             '!.git/**/*',
@@ -157,10 +159,12 @@ module.exports = async function () {
             icon: 'icon/icon.png',
             artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
             desktop: {
-                Name: 'RPG数据拓展编辑器',
-                Comment: 'RPG Maker Data Extension Editor',
-                Categories: 'Development;IDE;',
-                Keywords: 'rpg;maker;editor;json;',
+                entry: {
+                    Name: 'RPG数据拓展编辑器',
+                    Comment: 'RPG Maker Data Extension Editor',
+                    Categories: 'Development;IDE;',
+                    Keywords: 'rpg;maker;editor;json;',
+                }
             },
         },
         

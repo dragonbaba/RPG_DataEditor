@@ -5,11 +5,9 @@
  * Handles automatic update checking, downloading, and installation
  * using electron-updater with GitHub Releases as the primary source.
  */
-
-import pkg from 'electron-updater';
+import pkg from "electron-updater";
 const { autoUpdater } = pkg;
-type ElectronUpdateInfo = pkg.UpdateInfo;
-type ProgressInfo = pkg.ProgressInfo;
+import type { UpdateInfo as ElectronUpdateInfo, ProgressInfo } from 'electron-updater';
 
 import { BrowserWindow, ipcMain, app } from 'electron';
 import * as path from 'path';
@@ -60,7 +58,7 @@ class AutoUpdaterService {
     autoUpdater.autoDownload = false; // Don't auto-download, let user decide
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowDowngrade = false;
-    
+
     // Set up logging
     autoUpdater.logger = {
       info: (message: string) => console.log('[AutoUpdater]', message),
@@ -117,11 +115,11 @@ class AutoUpdaterService {
    */
   private convertUpdateInfo(info: ElectronUpdateInfo): UpdateInfo {
     let releaseNotes = '';
-    
+
     if (typeof info.releaseNotes === 'string') {
       releaseNotes = info.releaseNotes;
     } else if (Array.isArray(info.releaseNotes)) {
-      releaseNotes = info.releaseNotes.map(note => 
+      releaseNotes = info.releaseNotes.map(note =>
         typeof note === 'string' ? note : note.note || ''
       ).join('\n');
     }
@@ -221,7 +219,7 @@ class AutoUpdaterService {
     try {
       this.isCheckingForUpdate = true;
       const result = await autoUpdater.checkForUpdates();
-      
+
       // Update last check time
       this.config.lastUpdateCheck = Date.now();
       await this.saveConfig();

@@ -383,7 +383,7 @@ function createMenu(): void {
               dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 title: '关于 RM数据拓展编辑器',
-                message: 'RM数据拓展编辑器 v1.0.2',
+                message: 'RM数据拓展编辑器 v1.0.4',
                 detail: '功能强大的JSON编辑工具，支持代码生成和自动链接管理',
               });
             }

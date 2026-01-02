@@ -1,6 +1,6 @@
 {
   "name": "rpg-data-editor",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "RM数据拓展编辑器 - 功能强大的JSON编辑工具，支持代码生成和自动链接管理",
   "main": "dist-electron/main.js",
   "homepage": "https://github.com/dragonbaba/RPG_DataEditor#readme",
@@ -26,7 +26,12 @@
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
     "prepare": "npm run compile:main",
-    "release": "node scripts/release.js"
+    "release": "node scripts/release.js",
+    "build-release": "node scripts/build-release.js",
+    "build-release:win": "node scripts/build-release.js win",
+    "build-release:mac": "node scripts/build-release.js mac",
+    "build-release:linux": "node scripts/build-release.js linux",
+    "build-release:all": "node scripts/build-release.js all"
   },
   "keywords": [
     "note",

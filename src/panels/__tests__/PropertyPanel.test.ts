@@ -14,21 +14,21 @@ import {
   disposePropertyPanel 
 } from '../PropertyPanel';
 
-// Mock DOM elements
-const mockElements = {
-  propertyModePanel: document.createElement('div'),
-  baseAttributeList: document.createElement('div'),
-  customAttributeList: document.createElement('div'),
-  propertyModeSubtitle: document.createElement('div'),
-  addCustomPropertyBtn: document.createElement('button'),
-  savePropertiesBtn: document.createElement('button'),
-  saveCustomPropertyBtn: document.createElement('button'),
-};
-
 // Mock DOM Manager
 vi.mock('../../core/DOMManager', () => ({
-  DOM: mockElements
+  DOM: {
+    propertyModePanel: document.createElement('div'),
+    baseAttributeList: document.createElement('div'),
+    customAttributeList: document.createElement('div'),
+    propertyModeSubtitle: document.createElement('div'),
+    addCustomPropertyBtn: document.createElement('button'),
+    savePropertiesBtn: document.createElement('button'),
+    saveCustomPropertyBtn: document.createElement('button'),
+  }
 }));
+
+// Create reference to mocked DOM elements for tests
+let mockElements: any;
 
 // Mock theme manager
 vi.mock('../../theme/ThemeManager', () => ({
@@ -46,6 +46,9 @@ vi.mock('../../theme/effects/VisualEffects', () => ({
     createScanningLine: vi.fn(() => () => {}),
     createPulsingGlow: vi.fn(),
     createHolographicFlicker: vi.fn(() => () => {}),
+    createParticleField: vi.fn(() => () => {}),
+    createMatrixRain: vi.fn(() => () => {}),
+    createEnergyPulse: vi.fn(() => () => {}),
   }
 }));
 
@@ -55,7 +58,11 @@ vi.mock('../../pools/DOMPools', () => ({
 }));
 
 describe('PropertyPanel', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Initialize mock elements reference
+    const { DOM } = await import('../../core/DOMManager');
+    mockElements = DOM;
+    
     // 设置基础属性输入框
     mockElements.baseAttributeList.innerHTML = `
       <input class="base-attribute-input" data-key="mhp" />
