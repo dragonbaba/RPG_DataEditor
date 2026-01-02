@@ -1,9 +1,9 @@
 {
   "name": "rpg-data-editor",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "RM数据拓展编辑器 - 功能强大的JSON编辑工具，支持代码生成和自动链接管理",
   "main": "dist-electron/main.js",
-  "homepage": "./",
+  "homepage": "https://github.com/dragonbaba/RPG_DataEditor#readme",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -41,7 +41,6 @@
     "type": "git",
     "url": "https://github.com/dragonbaba/RPG_DataEditor.git"
   },
-  "homepage": "https://github.com/dragonbaba/RPG_DataEditor#readme",
   "bugs": {
     "url": "https://github.com/dragonbaba/RPG_DataEditor/issues"
   },
