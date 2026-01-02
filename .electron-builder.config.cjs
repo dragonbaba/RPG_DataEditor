@@ -64,13 +64,13 @@ module.exports = async function () {
                     target: 'nsis',
                     arch: ['x64', 'ia32'],
                 },
-                {
-                    target: 'portable',
-                    arch: ['x64'],
-                },
-            ],
-            icon: 'icon/icon.png',
-            artifactName: '${productName}-${version}-${os}-${arch}.${ext}',
+        {
+            target: 'portable',
+            arch: ['x64'],
+        },
+    ],
+    icon: 'icon/icon.png',
+    artifactName: 'rpg-data-editor-setup-${version}-${arch}.${ext}',
             // Sign the application (requires certificate)
             // certificateFile: 'path/to/certificate.pfx',
             // certificatePassword: process.env.WIN_CSC_KEY_PASSWORD,
