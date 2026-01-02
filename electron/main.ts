@@ -343,7 +343,7 @@ function createMenu(): void {
         { role: 'reload', label: '刷新' },
         { role: 'forceReload', label: '强制刷新' },
         { type: 'separator' },
-        { role: 'toggleDevTools', label: '开发者工具' },
+        { role: 'toggleDevTools', label: '开发者工具', enabled: isDev },
       ],
     },
     {
