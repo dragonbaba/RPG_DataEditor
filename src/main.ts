@@ -29,6 +29,7 @@ import { initQuestPanel, renderQuestPanel } from './panels/QuestPanel';
 import { initProjectilePanel, renderProjectilePanel } from './panels/ProjectilePanel';
 import { EditorManager } from './core/EditorManager';
 import { settingsDialog } from './components/ui/SettingsDialog';
+import { updateProgressDialog } from './components/update/UpdateProgressDialog';
 import { applyWorkspaceSettings } from './services/MonacoLoader';
 import { showInputDialog } from './services/InputDialog';
 import { getScriptCache, setScriptCache, removeScriptCache } from './services/ScriptCacheManager';
@@ -161,6 +162,10 @@ async function initializeApp(): Promise<void> {
     initProjectilePanel();
     settingsDialog.bindEvents(); // Ensure events are bound after IPC is ready
     logger.info('All panels initialized', undefined, 'Main');
+
+    // 12. 初始化更新进度对话框
+    // UpdateProgressDialog is automatically initialized as a singleton
+    logger.info('UpdateProgressDialog initialized', undefined, 'Main');
 
     // 12. 设置 item:selected 事件处理
     setupItemSelectedHandler();

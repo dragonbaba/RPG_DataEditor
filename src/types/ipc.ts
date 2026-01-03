@@ -162,6 +162,7 @@ export interface IPCEventChannels {
   'update:available': UpdateInfo;
   'update:downloaded': void;
   'update:error': string;
+  'update:no-update-available': { currentVersion?: string };
   'open-path-settings': void;
 }
 

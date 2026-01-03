@@ -218,6 +218,7 @@ const validChannels: readonly string[] = [
   'update:progress',
   'update:downloaded',
   'update:error',
+  'update:no-update-available',
 ] as const;
 
 // Cache registered listeners to avoid duplicate registration

@@ -438,12 +438,20 @@ export function registerIPCListeners(): void {
     EventSystem.emit('update:available', info);
   });
 
+  window.ipcOn('update:progress', (progress) => {
+    EventSystem.emit('update:progress', progress);
+  });
+
   window.ipcOn('update:downloaded', () => {
     EventSystem.emit('update:downloaded');
   });
 
   window.ipcOn('update:error', (error) => {
     EventSystem.emit('update:error', error);
+  });
+
+  window.ipcOn('update:no-update-available', (info) => {
+    EventSystem.emit('update:no-update-available', info);
   });
 
   logger.info('IPC listeners registered', undefined, 'IPCBridge');

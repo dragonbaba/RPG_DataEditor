@@ -358,51 +358,23 @@ function createMenu(): void {
                 console.log('[Main] Calling autoUpdaterService.checkForUpdates(true)...');
                 const updateInfo = await autoUpdaterService.checkForUpdates(true);
                 console.log('[Main] checkForUpdates returned:', updateInfo);
-                
+
                 if (updateInfo) {
-                  // 有更新可用，显示更新对话框
-                  const result = await dialog.showMessageBox(mainWindow, {
-                    type: 'info',
-                    title: '发现新版本',
-                    message: `发现新版本 v${updateInfo.version}`,
-                    detail: `当前版本: v${app.getVersion()}\n\n是否立即下载更新？`,
-                    buttons: ['下载更新', '稍后提醒'],
-                    defaultId: 0,
-                    cancelId: 1,
-                  });
-                  
-                  if (result.response === 0) {
-                    // 用户选择下载更新
-                    try {
-                      await autoUpdaterService.downloadUpdate();
-                    } catch (downloadError) {
-                      const message = downloadError instanceof Error ? downloadError.message : 'Unknown error';
-                      dialog.showMessageBox(mainWindow, {
-                        type: 'error',
-                        title: '下载失败',
-                        message: '下载更新失败',
-                        detail: message,
-                      });
-                    }
-                  }
+                  // 有更新可用，通过 IPC 事件通知渲染进程显示我们的 UI 组件
+                  console.log('[Main] Sending update:available event to renderer');
+                  mainWindow.webContents.send('update:available', updateInfo);
                 } else {
-                  // 没有更新
-                  dialog.showMessageBox(mainWindow, {
-                    type: 'info',
-                    title: '检查更新',
-                    message: '当前已是最新版本',
-                    detail: `当前版本: v${app.getVersion()}`,
+                  // 没有更新，也通过 IPC 通知，让 UI 组件处理
+                  console.log('[Main] No update available, sending to renderer for UI handling');
+                  mainWindow.webContents.send('update:no-update-available', {
+                    currentVersion: app.getVersion()
                   });
                 }
               } catch (error) {
                 console.error('[Main] Check for updates error:', error);
                 const message = error instanceof Error ? error.message : 'Unknown error';
-                dialog.showMessageBox(mainWindow, {
-                  type: 'error',
-                  title: '检查更新失败',
-                  message: '无法检查更新',
-                  detail: message,
-                });
+                // 通过 IPC 发送错误信息
+                mainWindow.webContents.send('update:error', message);
               }
             }
           },
@@ -415,7 +387,7 @@ function createMenu(): void {
               dialog.showMessageBox(mainWindow, {
                 type: 'info',
                 title: '关于 RM数据拓展编辑器',
-                message: 'RM数据拓展编辑器 v1.0.5',
+                message: 'RM数据拓展编辑器 v1.0.4',
                 detail: '功能强大的JSON编辑工具，支持代码生成和自动链接管理',
               });
             }
