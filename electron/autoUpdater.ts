@@ -59,13 +59,19 @@ class AutoUpdaterService {
     autoUpdater.autoInstallOnAppQuit = true;
     autoUpdater.allowDowngrade = false;
 
-    // Set up logging
+    // Set up logging - more verbose for debugging
     autoUpdater.logger = {
-      info: (message: string) => console.log('[AutoUpdater]', message),
-      warn: (message: string) => console.warn('[AutoUpdater]', message),
-      error: (message: string) => console.error('[AutoUpdater]', message),
-      debug: (message: string) => console.log('[AutoUpdater Debug]', message),
+      info: (message: string) => console.log('[AutoUpdater INFO]', message),
+      warn: (message: string) => console.warn('[AutoUpdater WARN]', message),
+      error: (message: string) => console.error('[AutoUpdater ERROR]', message),
+      debug: (message: string) => console.log('[AutoUpdater DEBUG]', message),
     };
+
+    // Log current configuration
+    console.log('[AutoUpdater] Configuration:');
+    console.log('[AutoUpdater]   autoDownload:', autoUpdater.autoDownload);
+    console.log('[AutoUpdater]   autoInstallOnAppQuit:', autoUpdater.autoInstallOnAppQuit);
+    console.log('[AutoUpdater]   allowDowngrade:', autoUpdater.allowDowngrade);
 
     // Event handlers
     autoUpdater.on('checking-for-update', () => {
@@ -74,7 +80,9 @@ class AutoUpdaterService {
     });
 
     autoUpdater.on('update-available', (info: ElectronUpdateInfo) => {
-      console.log('[AutoUpdater] Update available:', info.version);
+      console.log('[AutoUpdater] Event: update-available');
+      console.log('[AutoUpdater] Update version:', info.version);
+      console.log('[AutoUpdater] Release date:', info.releaseDate);
       this.isCheckingForUpdate = false;
       this.updateAvailable = true;
       this.currentUpdateInfo = this.convertUpdateInfo(info);
@@ -82,7 +90,8 @@ class AutoUpdaterService {
     });
 
     autoUpdater.on('update-not-available', (info: ElectronUpdateInfo) => {
-      console.log('[AutoUpdater] No update available. Current version:', info.version);
+      console.log('[AutoUpdater] Event: update-not-available');
+      console.log('[AutoUpdater] Current version is up to date:', info.version);
       this.isCheckingForUpdate = false;
       this.updateAvailable = false;
     });
@@ -104,7 +113,9 @@ class AutoUpdaterService {
     });
 
     autoUpdater.on('error', (error: Error) => {
-      console.error('[AutoUpdater] Error:', error.message);
+      console.error('[AutoUpdater] Event: error');
+      console.error('[AutoUpdater] Error message:', error.message);
+      console.error('[AutoUpdater] Error stack:', error.stack);
       this.isCheckingForUpdate = false;
       this.sendToRenderer('update:error', error.message);
     });
@@ -206,8 +217,11 @@ class AutoUpdaterService {
    * Check for updates
    */
   async checkForUpdates(force = false): Promise<UpdateInfo | null> {
+    console.log('[AutoUpdater] checkForUpdates called, force:', force);
+    console.log('[AutoUpdater] Current app version:', app.getVersion());
+    
     if (this.isCheckingForUpdate) {
-      console.log('[AutoUpdater] Already checking for updates');
+      console.log('[AutoUpdater] Already checking for updates, skipping');
       return null;
     }
 
@@ -218,15 +232,38 @@ class AutoUpdaterService {
 
     try {
       this.isCheckingForUpdate = true;
+      console.log('[AutoUpdater] Starting update check...');
+      
       const result = await autoUpdater.checkForUpdates();
+      console.log('[AutoUpdater] Check result:', result ? 'received' : 'null');
 
       // Update last check time
       this.config.lastUpdateCheck = Date.now();
       await this.saveConfig();
 
+      // 重置检查状态
+      this.isCheckingForUpdate = false;
+
       if (result && result.updateInfo) {
-        return this.convertUpdateInfo(result.updateInfo);
+        const currentVersion = app.getVersion();
+        const latestVersion = result.updateInfo.version;
+        console.log('[AutoUpdater] Current version:', currentVersion);
+        console.log('[AutoUpdater] Latest version:', latestVersion);
+        
+        // 比较版本号
+        if (latestVersion !== currentVersion) {
+          console.log('[AutoUpdater] Update available!');
+          this.updateAvailable = true;
+          this.currentUpdateInfo = this.convertUpdateInfo(result.updateInfo);
+          return this.currentUpdateInfo;
+        } else {
+          console.log('[AutoUpdater] Already on latest version');
+          this.updateAvailable = false;
+          return null;
+        }
       }
+      
+      console.log('[AutoUpdater] No update info in result');
       return null;
     } catch (error) {
       console.error('[AutoUpdater] Check for updates failed:', error);

@@ -353,9 +353,40 @@ function createMenu(): void {
           label: '检查更新',
           click: async () => {
             if (mainWindow) {
+              console.log('[Main] Menu: 检查更新 clicked');
               try {
+                console.log('[Main] Calling autoUpdaterService.checkForUpdates(true)...');
                 const updateInfo = await autoUpdaterService.checkForUpdates(true);
-                if (!updateInfo) {
+                console.log('[Main] checkForUpdates returned:', updateInfo);
+                
+                if (updateInfo) {
+                  // 有更新可用，显示更新对话框
+                  const result = await dialog.showMessageBox(mainWindow, {
+                    type: 'info',
+                    title: '发现新版本',
+                    message: `发现新版本 v${updateInfo.version}`,
+                    detail: `当前版本: v${app.getVersion()}\n\n是否立即下载更新？`,
+                    buttons: ['下载更新', '稍后提醒'],
+                    defaultId: 0,
+                    cancelId: 1,
+                  });
+                  
+                  if (result.response === 0) {
+                    // 用户选择下载更新
+                    try {
+                      await autoUpdaterService.downloadUpdate();
+                    } catch (downloadError) {
+                      const message = downloadError instanceof Error ? downloadError.message : 'Unknown error';
+                      dialog.showMessageBox(mainWindow, {
+                        type: 'error',
+                        title: '下载失败',
+                        message: '下载更新失败',
+                        detail: message,
+                      });
+                    }
+                  }
+                } else {
+                  // 没有更新
                   dialog.showMessageBox(mainWindow, {
                     type: 'info',
                     title: '检查更新',
@@ -364,6 +395,7 @@ function createMenu(): void {
                   });
                 }
               } catch (error) {
+                console.error('[Main] Check for updates error:', error);
                 const message = error instanceof Error ? error.message : 'Unknown error';
                 dialog.showMessageBox(mainWindow, {
                   type: 'error',
