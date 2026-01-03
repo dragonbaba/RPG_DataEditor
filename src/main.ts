@@ -29,7 +29,7 @@ import { initQuestPanel, renderQuestPanel } from './panels/QuestPanel';
 import { initProjectilePanel, renderProjectilePanel } from './panels/ProjectilePanel';
 import { EditorManager } from './core/EditorManager';
 import { settingsDialog } from './components/ui/SettingsDialog';
-import { updateProgressDialog } from './components/update/UpdateProgressDialog';
+import './components/update/UpdateProgressDialog';
 import { applyWorkspaceSettings } from './services/MonacoLoader';
 import { showInputDialog } from './services/InputDialog';
 import { getScriptCache, setScriptCache, removeScriptCache } from './services/ScriptCacheManager';
