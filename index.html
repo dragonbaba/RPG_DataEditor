@@ -748,8 +748,16 @@
               <div
                 class="projectile-template-header flex justify-between items-center mb-3"
               >
-                <span class="text-sm font-medium text-gray-300">弹道模板</span>
-                <div class="flex gap-2">
+                <div class="flex items-center gap-3 flex-1">
+                  <span class="sci-fi-label whitespace-nowrap">名称</span>
+                  <input
+                    id="projectileTemplateName"
+                    type="text"
+                    class="theme-input flex-1"
+                    placeholder="弹道名称"
+                  />
+                </div>
+                <div class="flex gap-2 ml-3">
                   <button
                     id="projectileCreateTemplateBtn"
                     class="sci-fi-btn small px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
@@ -762,18 +770,13 @@
                   >
                     保存
                   </button>
+                  <button
+                    id="projectileDeleteTemplateBtn"
+                    class="sci-fi-btn small px-2 py-1 text-xs bg-red-700 hover:bg-red-600"
+                  >
+                    删除
+                  </button>
                 </div>
-              </div>
-              <div class="projectile-template-grid grid grid-cols-2 gap-2">
-                <label class="block">
-                  <span class="sci-fi-label">名称</span>
-                  <input
-                    id="projectileTemplateName"
-                    type="text"
-                    class="theme-input w-full"
-                    placeholder="基础弹道"
-                  />
-                </label>
               </div>
             </div>
             <div class="projectile-animation-select-section sci-fi-card">
@@ -1049,6 +1052,31 @@
                   <span id="questActorStatus" class="text-xs text-gray-500"
                     >未加载</span
                   >
+                </div>
+              </div>
+            </div>
+            <div class="quest-template-section sci-fi-card">
+              <div class="quest-template-header flex justify-between items-center mb-3">
+                <span class="text-sm font-medium text-gray-300">任务模板</span>
+                <div class="flex gap-2">
+                  <button
+                    id="questCreateBtn"
+                    class="sci-fi-btn small px-2 py-1 text-xs bg-gray-700 hover:bg-gray-600"
+                  >
+                    新建
+                  </button>
+                  <button
+                    id="questSaveBtn"
+                    class="sci-fi-btn small px-2 py-1 text-xs bg-cyan-700 hover:bg-cyan-600"
+                  >
+                    保存
+                  </button>
+                  <button
+                    id="questDeleteBtn"
+                    class="sci-fi-btn small px-2 py-1 text-xs bg-red-700 hover:bg-red-600"
+                  >
+                    删除
+                  </button>
                 </div>
               </div>
             </div>

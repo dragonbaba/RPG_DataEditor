@@ -16,7 +16,7 @@ import * as PIXI from 'pixi.js';
 import { DOM } from '../core/DOMManager';
 import { acquireSegmentItem, releaseSegmentItem, recyclePoolTree } from '../pools/DOMPools';
 import { fillOptions } from '../utils/domHelpers';
-import { StateManager } from '../core/StateManager';
+import { StateManager, DataItem } from '../core/StateManager';
 import { EventSystem } from '../core/EventSystem';
 import { waitMs } from '../utils/delay';
 import { PixiRenderer, createCanvasTexture } from '../core/PixiRenderer';
@@ -1355,6 +1355,170 @@ export function saveTemplate(): Record<string, unknown> | null {
   return template;
 }
 
+// ============ 数据管理功能 ============
+
+/** 当前弹道索引 */
+let currentProjectileIndex = -1;
+
+/**
+ * 创建默认弹道数据
+ */
+function createDefaultProjectile(): Record<string, unknown> {
+  return {
+    name: '新弹道',
+    startAnimationId: 0,
+    launchAnimation: {
+      animationId: 0,
+      segments: [{ ...DEFAULT_SEGMENT }],
+    },
+    endAnimationId: 0,
+  };
+}
+
+/**
+ * 新建弹道数据
+ */
+export function newProjectile(): void {
+  const state = StateManager.getState();
+  const currentData = state.currentData as Array<Record<string, unknown> | null>;
+  
+  if (!currentData) {
+    EventSystem.emit('error:show', '请先加载弹道数据文件');
+    return;
+  }
+  
+  const newEntry = createDefaultProjectile();
+  currentData.push(newEntry);
+  currentProjectileIndex = currentData.length - 1;
+  
+  StateManager.setState({ currentData: [...currentData] as DataItem[] });
+  StateManager.selectItem(currentProjectileIndex);
+  loadTemplate(newEntry);
+  
+  EventSystem.emit('projectile:created', { projectile: newEntry, index: currentProjectileIndex });
+  logger.info('New projectile created', { index: currentProjectileIndex }, 'ProjectilePanel');
+}
+
+/**
+ * 保存弹道数据到文件
+ */
+export async function saveProjectileFile(): Promise<void> {
+  const state = StateManager.getState();
+  const filePath = state.currentFilePath;
+  
+  if (!filePath) {
+    EventSystem.emit('error:show', '没有打开的弹道文件');
+    return;
+  }
+  
+  // 先收集当前编辑的数据
+  const template = saveTemplate();
+  if (!template && currentProjectileIndex >= 0) {
+    // 如果没有名称但有选中项，使用当前数据
+    const currentData = state.currentData as Array<Record<string, unknown> | null>;
+    if (currentData && currentData[currentProjectileIndex]) {
+      const currentItem = currentData[currentProjectileIndex] as Record<string, unknown>;
+      currentItem.name = DOM.projectileTemplateName?.value.trim() || currentItem.name || '未命名';
+      currentItem.startAnimationId = Number(DOM.projectileStartAnimationSelect?.value || 0);
+      currentItem.launchAnimation = {
+        animationId: Number(DOM.projectileLaunchAnimationSelect?.value || 0),
+        segments: segments.map(s => ({ ...s })),
+      };
+      currentItem.endAnimationId = Number(DOM.projectileEndAnimationSelect?.value || 0);
+    }
+  } else if (template && currentProjectileIndex >= 0) {
+    // 更新当前数据
+    const currentData = state.currentData as Array<Record<string, unknown> | null>;
+    if (currentData) {
+      currentData[currentProjectileIndex] = template;
+      StateManager.setState({ currentData: [...currentData] as DataItem[] });
+    }
+  }
+  
+  const currentData = StateManager.getState().currentData;
+  const result = await fileSystemService.writeJSON(filePath, currentData);
+  
+  if (result.success) {
+    EventSystem.emit('projectile:saved', { filePath, count: currentData?.length || 0 });
+    EventSystem.emit('success:show', '弹道数据已保存');
+    logger.info('Projectile file saved', { filePath }, 'ProjectilePanel');
+  } else {
+    EventSystem.emit('error:show', '保存弹道数据失败');
+    logger.error('Failed to save projectile file', { error: result.error }, 'ProjectilePanel');
+  }
+}
+
+/**
+ * 删除当前弹道数据
+ */
+export async function deleteProjectile(): Promise<void> {
+  const state = StateManager.getState();
+  const currentData = state.currentData as Array<Record<string, unknown> | null>;
+  
+  if (!currentData || currentProjectileIndex < 0 || currentProjectileIndex >= currentData.length) {
+    EventSystem.emit('error:show', '请先选择要删除的弹道');
+    return;
+  }
+  
+  // 将当前索引位置设为 null
+  currentData[currentProjectileIndex] = null;
+  StateManager.setState({ currentData: [...currentData] as DataItem[] });
+  
+  // 保存到文件
+  await saveProjectileFile();
+  
+  // 选择下一个有效项
+  let nextIndex = -1;
+  for (let i = currentProjectileIndex + 1; i < currentData.length; i++) {
+    if (currentData[i] !== null) {
+      nextIndex = i;
+      break;
+    }
+  }
+  if (nextIndex < 0) {
+    for (let i = currentProjectileIndex - 1; i >= 1; i--) {
+      if (currentData[i] !== null) {
+        nextIndex = i;
+        break;
+      }
+    }
+  }
+  
+  if (nextIndex >= 0) {
+    currentProjectileIndex = nextIndex;
+    StateManager.selectItem(nextIndex);
+    loadTemplate(currentData[nextIndex] as Record<string, unknown>);
+  } else {
+    currentProjectileIndex = -1;
+    // 清空编辑器
+    if (DOM.projectileTemplateName) DOM.projectileTemplateName.value = '';
+    segments = [{ ...DEFAULT_SEGMENT }];
+    renderSegments();
+  }
+  
+  EventSystem.emit('projectile:deleted', { index: currentProjectileIndex });
+  logger.info('Projectile deleted', { index: currentProjectileIndex }, 'ProjectilePanel');
+}
+
+/**
+ * 处理弹道名称变更，同步到数据列表
+ */
+function handleProjectileNameChange(): void {
+  const state = StateManager.getState();
+  const currentData = state.currentData as Array<Record<string, unknown> | null>;
+  
+  if (!currentData || currentProjectileIndex < 0) return;
+  
+  const newName = DOM.projectileTemplateName?.value.trim() || '';
+  const currentItem = currentData[currentProjectileIndex];
+  
+  if (currentItem && currentItem.name !== newName) {
+    currentItem.name = newName;
+    // 触发列表刷新
+    StateManager.setState({ currentData: [...currentData] as DataItem[] });
+  }
+}
+
 // ============ 初始化 ============
 
 /**
@@ -1495,7 +1659,22 @@ export function initProjectilePanel(): void {
 
   // 绑定保存模板按钮
   if (DOM.projectileSaveTemplateBtn) {
-    DOM.projectileSaveTemplateBtn.addEventListener('click', saveTemplate);
+    DOM.projectileSaveTemplateBtn.addEventListener('click', () => saveProjectileFile());
+  }
+
+  // 绑定新建弹道按钮
+  if (DOM.projectileCreateTemplateBtn) {
+    DOM.projectileCreateTemplateBtn.addEventListener('click', newProjectile);
+  }
+
+  // 绑定删除弹道按钮
+  if (DOM.projectileDeleteTemplateBtn) {
+    DOM.projectileDeleteTemplateBtn.addEventListener('click', () => deleteProjectile());
+  }
+
+  // 绑定弹道名称输入框变更事件
+  if (DOM.projectileTemplateName) {
+    DOM.projectileTemplateName.addEventListener('input', handleProjectileNameChange);
   }
 
   // 绑定播放测试按钮
@@ -1696,6 +1875,7 @@ export function disposeProjectilePanel(): void {
 export function renderProjectilePanel(): void {
   const state = StateManager.getState();
   const currentItem = state.currentItem;
+  const currentData = state.currentData;
 
   // 确保预览已初始化
   initializePreview();
@@ -1703,6 +1883,11 @@ export function renderProjectilePanel(): void {
   if (!currentItem) {
     logger.warn('No current item to render in ProjectilePanel', undefined, 'ProjectilePanel');
     return;
+  }
+
+  // 更新当前弹道索引
+  if (currentData) {
+    currentProjectileIndex = currentData.indexOf(currentItem);
   }
 
   // 将当前项目作为弹道模板加载
@@ -2670,5 +2855,8 @@ export default {
   saveTemplate,
   saveActorOffset,
   saveEnemyOffset,
+  newProjectile,
+  saveProjectileFile,
+  deleteProjectile,
   dispose: disposeProjectilePanel,
 };

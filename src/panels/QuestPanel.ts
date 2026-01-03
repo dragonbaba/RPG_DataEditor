@@ -1,5 +1,5 @@
 import { DOM } from '../core/DOMManager';
-import { StateManager } from '../core/StateManager';
+import { StateManager, DataItem } from '../core/StateManager';
 import { EventSystem } from '../core/EventSystem';
 import { logger } from '../services/logger';
 import { fillOptions } from '../utils/domHelpers';
@@ -130,6 +130,7 @@ let currentQuestIndex = -1;
 let currentQuest: RPGQuest | null = null;
 let eventsBound = false;
 let dataLoadersBound = false;
+let buttonsBound = false;
 
 const requirementTemplate = document.getElementById('quest-requirement-card') as HTMLTemplateElement | null;
 const objectiveTemplate = document.getElementById('quest-objective-card') as HTMLTemplateElement | null;
@@ -567,18 +568,29 @@ function buildRewardFields(grid: HTMLElement | null, rew: QuestReward): void {
   if (!grid) return;
   recycleGrid(grid);
   const type = rew.type ?? 1;
+  const state = StateManager.getState();
 
   if (type === 1) {
-    appendQuestField(grid, '物品', createDataSelect(StateManager.getState().questSystem.items, rew.itemId ?? 1, 'itemId', 'rewField', '物品'));
+    appendQuestField(grid, '物品', createDataSelect(state.questSystem.items, rew.itemId ?? 1, 'itemId', 'rewField', '物品'));
   } else if (type === 2) {
-    appendQuestField(grid, '武器', createDataSelect(StateManager.getState().questSystem.weapons, rew.weaponId ?? 1, 'weaponId', 'rewField', '武器'));
+    appendQuestField(grid, '武器', createDataSelect(state.questSystem.weapons, rew.weaponId ?? 1, 'weaponId', 'rewField', '武器'));
   } else if (type === 3) {
-    appendQuestField(grid, '防具', createDataSelect(StateManager.getState().questSystem.armors, rew.armorId ?? 1, 'armorId', 'rewField', '防具'));
+    appendQuestField(grid, '防具', createDataSelect(state.questSystem.armors, rew.armorId ?? 1, 'armorId', 'rewField', '防具'));
   } else if (type === 6) {
-    appendQuestField(grid, '开关', createDataSelect(StateManager.getState().questSystem.switches, rew.switchId ?? 1, 'switchId', 'rewField', '开关'));
+    // 开关类型：使用 fillDataSelect 正确处理字符串数组
+    const switchSelect = acquireSelect();
+    switchSelect.className = 'theme-select';
+    switchSelect.dataset.rewField = 'switchId';
+    fillDataSelect(switchSelect, state.questSystem.switches, rew.switchId ?? 1, '开关');
+    appendQuestField(grid, '开关', switchSelect);
     appendQuestField(grid, '值', createBoolSelect(!!rew.targetValue, 'rewField', 'targetValue'));
   } else if (type === 7) {
-    appendQuestField(grid, '变量', createDataSelect(StateManager.getState().questSystem.variables, rew.variableId ?? 1, 'variableId', 'rewField', '变量'));
+    // 变量类型：使用 fillDataSelect 正确处理字符串数组
+    const variableSelect = acquireSelect();
+    variableSelect.className = 'theme-select';
+    variableSelect.dataset.rewField = 'variableId';
+    fillDataSelect(variableSelect, state.questSystem.variables, rew.variableId ?? 1, '变量');
+    appendQuestField(grid, '变量', variableSelect);
     appendQuestField(grid, '运算', createOperatorSelect(rew.op || '=', 'rewField', 'op'));
   }
 
@@ -1202,14 +1214,50 @@ function updateQuestForm(quest: RPGQuest): void {
   renderObjectiveList(quest.objectives || []);
   renderRewardList(quest.rewards || []);
 }
+
+/**
+ * 处理任务标题变更，同步到数据列表
+ */
+function handleQuestTitleChange(): void {
+  const state = StateManager.getState();
+  const currentData = state.currentData as Array<Record<string, unknown> | null>;
+  
+  if (!currentData || currentQuestIndex < 0) return;
+  
+  const newTitle = DOM.questTitleInput?.value.trim() || '';
+  // currentData[0] 是 null，实际数据从索引 1 开始
+  const dataIndex = currentQuestIndex + 1;
+  const currentItem = currentData[dataIndex];
+  
+  if (currentItem && currentItem.title !== newTitle) {
+    currentItem.title = newTitle;
+    
+    // 同时更新 quests 数组中的数据
+    const quests = state.quests;
+    if (quests[currentQuestIndex]) {
+      quests[currentQuestIndex].title = newTitle;
+    }
+    
+    // 触发列表刷新
+    StateManager.setState({ currentData: [...currentData] as DataItem[] });
+  }
+}
+
 export function newQuest(): void {
   collectFormToQuest();
   const state = StateManager.getState();
-  const quests = state.quests;
   const newQuestEntry = createDefaultQuest();
-  quests.push(newQuestEntry);
-  currentQuestIndex = quests.length - 1;
-  StateManager.setState({ quests });
+  
+  // 创建新的 quests 数组（避免直接修改原数组）
+  const newQuests = [...state.quests, newQuestEntry];
+  currentQuestIndex = newQuests.length - 1;
+  
+  // 同步更新 currentData（用于 ItemList 渲染）
+  // currentData[0] 是 null，后面是实际数据
+  const currentData = state.currentData ? [...state.currentData] : [null];
+  currentData.push(newQuestEntry as DataItem);
+  
+  StateManager.setState({ quests: newQuests, currentData });
   updateQuestForm(newQuestEntry);
   renderQuestList();
   EventSystem.emit('quest:created', { quest: newQuestEntry, index: currentQuestIndex });
@@ -1220,16 +1268,48 @@ export async function deleteQuest(): Promise<void> {
   if (currentQuestIndex < 0) return;
   const state = StateManager.getState();
   const quests = state.quests;
-  quests.splice(currentQuestIndex, 1);
-  currentQuestIndex = Math.min(currentQuestIndex, quests.length - 1);
-  StateManager.setState({ quests });
-  if (currentQuestIndex >= 0) {
-    updateQuestForm(quests[currentQuestIndex]);
+  const currentData = state.currentData as Array<Record<string, unknown> | null>;
+  
+  // 将当前索引位置设为 null（保持索引不变）
+  (quests as Array<RPGQuest | null>)[currentQuestIndex] = null;
+  
+  // 同步更新 currentData（currentData[0] 是 null，实际数据从索引 1 开始）
+  if (currentData && currentData[currentQuestIndex + 1] !== undefined) {
+    currentData[currentQuestIndex + 1] = null;
+  }
+  
+  StateManager.setState({ quests: [...quests], currentData: currentData ? [...currentData] as DataItem[] : undefined });
+  
+  // 选择下一个有效项
+  let nextIndex = -1;
+  for (let i = currentQuestIndex + 1; i < quests.length; i++) {
+    if (quests[i] !== null) {
+      nextIndex = i;
+      break;
+    }
+  }
+  if (nextIndex < 0) {
+    for (let i = currentQuestIndex - 1; i >= 0; i--) {
+      if (quests[i] !== null) {
+        nextIndex = i;
+        break;
+      }
+    }
+  }
+  
+  if (nextIndex >= 0) {
+    currentQuestIndex = nextIndex;
+    updateQuestForm(quests[nextIndex] as RPGQuest);
   } else {
+    currentQuestIndex = -1;
     currentQuest = null;
   }
+  
   renderQuestList();
   await saveQuestFile();
+  
+  EventSystem.emit('quest:deleted', { index: currentQuestIndex });
+  logger.info('Quest deleted', { index: currentQuestIndex }, 'QuestPanel');
 }
 
 export async function saveQuestFile(): Promise<void> {
@@ -1263,8 +1343,15 @@ export async function loadQuestFile(filePath: string): Promise<void> {
     StateManager.loadData(data, filePath, 'quest');
     StateManager.setState({ quests: normalized, questFilePath: filePath, currentFile: fileName });
 
+    // 选择第一个有效项目并渲染
     currentQuestIndex = 0;
-    updateQuestForm(normalized[0]);
+    if (normalized.length > 0) {
+      // 同步选择 StateManager 中的项目（索引+1因为data[0]是null）
+      StateManager.selectItem(1);
+      updateQuestForm(normalized[0]);
+      // 触发 item:selected 事件以确保面板正确渲染
+      EventSystem.emit('item:selected', 1);
+    }
     renderQuestList();
     updateQuestDataStatus();
     EventSystem.emit('quest:loaded', { filePath, count: normalized.length });
@@ -1487,7 +1574,7 @@ export function initQuestPanel(): void {
 
   if (questRewardList) {
     themeManager.createFuturisticPanel(questRewardList, {
-      variant: 'success',
+      variant: 'primary',
       scanlines: false,
     });
   }
@@ -1501,7 +1588,7 @@ export function initQuestPanel(): void {
 
   addButtons.forEach((btn, index) => {
     if (btn) {
-      const variants = ['secondary', 'accent', 'success'] as const;
+      const variants = ['secondary', 'accent', 'primary'] as const;
       themeManager.createFuturisticButton(btn, variants[index]);
     }
   });
@@ -1532,6 +1619,28 @@ export function initQuestPanel(): void {
     }
   });
 
+  // 绑定新建任务按钮（只绑定一次）
+  if (!buttonsBound) {
+    if (DOM.questCreateBtn) {
+      DOM.questCreateBtn.addEventListener('click', newQuest);
+    }
+
+    // 绑定保存任务按钮
+    if (DOM.questSaveBtn) {
+      DOM.questSaveBtn.addEventListener('click', () => saveQuestFile());
+    }
+
+    // 绑定删除任务按钮
+    if (DOM.questDeleteBtn) {
+      DOM.questDeleteBtn.addEventListener('click', () => deleteQuest());
+    }
+
+    // 绑定任务标题输入框变更事件
+    if (DOM.questTitleInput) {
+      DOM.questTitleInput.addEventListener('input', handleQuestTitleChange);
+    }
+    buttonsBound = true;
+  }
   logger.info('QuestPanel initialized with sci-fi theme', undefined, 'QuestPanel');
 }
 

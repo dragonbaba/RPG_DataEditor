@@ -121,6 +121,7 @@ function getEmptyStateElement(): HTMLDivElement {
 function renderListItems(listContainer: HTMLElement): void {
   const fragment = document.createDocumentFragment();
   const isQuest = fileType === 'quest';
+  const isProjectile = fileType === 'projectile';
 
   for (let i = 1; i < currentDataRef.length; i++) {
     const data = currentDataRef[i];
@@ -135,14 +136,16 @@ function renderListItems(listContainer: HTMLElement): void {
     }
 
     const itemData = data as Record<string, unknown>;
-    const itemId = (itemData.id as number) || i;
+    // 对于 quest 和 projectile 类型，使用数组索引 i 作为显示索引
+    // 对于其他类型，使用数据中的 id 字段（如果存在）
+    const displayIndex = (isQuest || isProjectile) ? i : ((itemData.id as number) || i);
     const itemName = isQuest
       ? ((itemData.title as string) || `任务${i}`)
       : ((itemData.name as string) || '[无名]');
 
     item.dataIndex = i;
     item.element.dataset.index = String(i);
-    item.idElement.textContent = `#${itemId}`;
+    item.idElement.textContent = `#${displayIndex}`;
     item.nameElement.textContent = itemName;
 
     fragment.appendChild(item.element);

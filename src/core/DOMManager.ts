@@ -106,6 +106,7 @@ export interface DOMCache {
   projectileStepForwardBtn: HTMLButtonElement | null;
   projectileFrameInfo: HTMLElement | null;
   projectileCreateTemplateBtn: HTMLButtonElement | null;
+  projectileDeleteTemplateBtn: HTMLButtonElement | null;
   projectileAnimationFileSelect: HTMLSelectElement | null;
   projectileAnimationLoadBtn: HTMLButtonElement | null;
   projectileAnimationPickBtn: HTMLButtonElement | null;
@@ -143,6 +144,9 @@ export interface DOMCache {
   projectileTargetCharacterSelect: HTMLSelectElement | null;
    
   // ===== 任务面板元素 =====
+  questCreateBtn: HTMLButtonElement | null;
+  questSaveBtn: HTMLButtonElement | null;
+  questDeleteBtn: HTMLButtonElement | null;
   questTitleInput: HTMLInputElement | null;
   questGiverInput: HTMLInputElement | null;
   questCategoryInput: HTMLInputElement | null;
@@ -291,6 +295,7 @@ class DOMManagerClass implements DOMCache {
   projectileStepForwardBtn: HTMLButtonElement | null = null;
   projectileFrameInfo: HTMLElement | null = null;
   projectileCreateTemplateBtn: HTMLButtonElement | null = null;
+  projectileDeleteTemplateBtn: HTMLButtonElement | null = null;
   projectileAnimationFileSelect: HTMLSelectElement | null = null;
   projectileAnimationLoadBtn: HTMLButtonElement | null = null;
   projectileAnimationPickBtn: HTMLButtonElement | null = null;
@@ -336,6 +341,9 @@ class DOMManagerClass implements DOMCache {
   projectileTargetSkillSelect: HTMLSelectElement | null = null;
 
   // ===== 任务面板元素 =====
+  questCreateBtn: HTMLButtonElement | null = null;
+  questSaveBtn: HTMLButtonElement | null = null;
+  questDeleteBtn: HTMLButtonElement | null = null;
   questTitleInput: HTMLInputElement | null = null;
   questGiverInput: HTMLInputElement | null = null;
   questCategoryInput: HTMLInputElement | null = null;
@@ -489,6 +497,7 @@ class DOMManagerClass implements DOMCache {
     this.projectileStepForwardBtn = this.getElement('projectileStepForwardBtn') as HTMLButtonElement;
     this.projectileFrameInfo = this.getElement('projectileFrameInfo');
     this.projectileCreateTemplateBtn = this.getElement('projectileCreateTemplateBtn') as HTMLButtonElement;
+    this.projectileDeleteTemplateBtn = this.getElement('projectileDeleteTemplateBtn') as HTMLButtonElement;
     this.projectileAnimationFileSelect = this.getElement('projectileAnimationFileSelect') as HTMLSelectElement;
     this.projectileAnimationLoadBtn = this.getElement('projectileAnimationLoadBtn') as HTMLButtonElement;
     this.projectileAnimationPickBtn = this.getElement('projectileAnimationPickBtn') as HTMLButtonElement;
@@ -534,6 +543,9 @@ class DOMManagerClass implements DOMCache {
     this.projectileTargetSkillSelect = this.getElement('projectileTargetSkillSelect') as HTMLSelectElement;
 
     // ===== 任务面板元素 =====
+    this.questCreateBtn = this.getElement('questCreateBtn') as HTMLButtonElement;
+    this.questSaveBtn = this.getElement('questSaveBtn') as HTMLButtonElement;
+    this.questDeleteBtn = this.getElement('questDeleteBtn') as HTMLButtonElement;
     this.questTitleInput = this.getElement('questTitleInput') as HTMLInputElement;
     this.questGiverInput = this.getElement('questGiverInput') as HTMLInputElement;
     this.questCategoryInput = this.getElement('questCategoryInput') as HTMLInputElement;
